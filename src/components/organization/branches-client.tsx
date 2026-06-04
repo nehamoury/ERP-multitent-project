@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Loader2, Trash2, Search, X, Pencil } from "lucide-react";
+import { Plus, Loader2, Trash2, Search, X, Pencil, Eye } from "lucide-react";
 import toast from "react-hot-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 
 export default function BranchesClient({ initialData, users }: { initialData: any[], users: any[] }) {
   const queryClient = useQueryClient();
@@ -281,6 +282,9 @@ export default function BranchesClient({ initialData, users }: { initialData: an
               <th className="px-6 py-4 font-medium">Code</th>
               <th className="px-6 py-4 font-medium">Manager</th>
               <th className="px-6 py-4 font-medium">Employees</th>
+              <th className="px-6 py-4 font-medium">Depts</th>
+              <th className="px-6 py-4 font-medium">Teams</th>
+              <th className="px-6 py-4 font-medium">Projects</th>
               <th className="px-6 py-4 font-medium">Status</th>
               <th className="px-6 py-4 font-medium text-right">Actions</th>
             </tr>
@@ -308,6 +312,9 @@ export default function BranchesClient({ initialData, users }: { initialData: an
                     ) : "—"}
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{branch._count?.users || 0}</td>
+                  <td className="px-6 py-4 text-muted-foreground">{branch._count?.departments || 0}</td>
+                  <td className="px-6 py-4 text-muted-foreground">{branch._count?.teams || 0}</td>
+                  <td className="px-6 py-4 text-muted-foreground">{0}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex px-2 py-1 text-[10px] font-bold uppercase rounded-full ${branch.isActive ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'}`}>
                       {branch.isActive ? 'Active' : 'Inactive'}
@@ -315,6 +322,9 @@ export default function BranchesClient({ initialData, users }: { initialData: an
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
+                      <Link href={`/admin/organization/branches/${branch.id}`} className="text-muted-foreground hover:text-blue-500 transition-colors p-1" title="View Details">
+                        <Eye size={16} />
+                      </Link>
                       <button onClick={() => openEditModal(branch)} className="text-muted-foreground hover:text-primary transition-colors p-1" title="Edit">
                         <Pencil size={16} />
                       </button>

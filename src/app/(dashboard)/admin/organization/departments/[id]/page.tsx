@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-const DepartmentDashboardClient = dynamic<{ department: any }>(() => import("@/components/organization/department-dashboard-client"), { 
+const DepartmentDashboardClient = dynamic<{ department: any, chatRoomId?: string }>(() => import("@/components/organization/department-dashboard-client"), { 
   ssr: false,
   loading: () => <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-primary" /></div>
 });
@@ -36,8 +36,15 @@ export default async function DepartmentDashboardPage({ params }: { params: { id
           id: true, name: true, employeeId: true, role: true, designation: { select: { name: true } },
           team: { select: { name: true } }, profileImage: true
         }
+      },
+      projects: {
+        select: { id: true, name: true, status: true, _count: { select: { tasks: true } } }
       }
     }
+  });
+
+  const chatRoom = await prisma.chatRoom.findFirst({
+    where: { departmentId: department?.id, vendorId: session.user.vendorId }
   });
 
   if (!department) notFound();
@@ -56,7 +63,7 @@ export default async function DepartmentDashboardPage({ params }: { params: { id
         </div>
       </div>
 
-      <DepartmentDashboardClient department={department} />
+      <DepartmentDashboardClient department={department} chatRoomId={chatRoom?.id} />
     </div>
   );
 }

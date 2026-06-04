@@ -2,7 +2,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Search, Plus, RefreshCw, Edit, UserCheck, UserX, ChevronLeft, ChevronRight, X, Loader2, Save } from "lucide-react";
+import { Search, Plus, RefreshCw, Edit, UserCheck, UserX, ChevronLeft, ChevronRight, X, Loader2, Save, Eye } from "lucide-react";
+import Link from "next/link";
 import { getInitials, getAvatarColor, getRoleBadge, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Button, RoleBadge, Badge, EmptyState } from "@/components/ui/shared";
@@ -30,13 +31,21 @@ export default function EmployeesClient() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [dept, setDept] = useState("");
+  const [branchFilter, setBranchFilter] = useState("");
+  const [teamFilter, setTeamFilter] = useState("");
+  const [designationFilter, setDesignationFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
-  const { data, isLoading: loading, error: fetchError } = useQuery({
-    queryKey: ['employees', page, search, dept],
+  const { data, isLoading: loading, isFetching, error: fetchError } = useQuery({
+    queryKey: ['employees', page, search, dept, branchFilter, teamFilter, designationFilter, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "15" });
       if (search) params.set("search", search);
       if (dept) params.set("dept", dept);
+      if (branchFilter) params.set("branchId", branchFilter);
+      if (teamFilter) params.set("teamId", teamFilter);
+      if (designationFilter) params.set("designationId", designationFilter);
+      if (statusFilter) params.set("isActive", statusFilter);
       const res = await fetch(`/api/employees?${params}`);
       return res.json();
     }
@@ -236,13 +245,34 @@ export default function EmployeesClient() {
             className="w-full pl-9 pr-4 py-2 text-sm bg-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
+        <select value={branchFilter} onChange={(e) => { setBranchFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 text-sm bg-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
+          <option value="">All Branches</option>
+          {meta.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
         <select value={dept} onChange={(e) => { setDept(e.target.value); setPage(1); }}
           className="px-3 py-2 text-sm bg-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
           <option value="">All Departments</option>
           {meta.departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
         </select>
+        <select value={teamFilter} onChange={(e) => { setTeamFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 text-sm bg-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
+          <option value="">All Teams</option>
+          {meta.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <select value={designationFilter} onChange={(e) => { setDesignationFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 text-sm bg-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
+          <option value="">All Designations</option>
+          {meta.designations.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 text-sm bg-muted rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50">
+          <option value="">All Status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
         <button onClick={() => queryClient.invalidateQueries({ queryKey: ['employees'] })} className="p-2 rounded-xl hover:bg-muted transition-colors" title="Refresh">
-          <RefreshCw size={16} className={cn("text-muted-foreground", loading && "animate-spin")} />
+          <RefreshCw size={16} className={cn("text-muted-foreground", (loading || isFetching) && "animate-spin")} />
         </button>
         <Button onClick={() => setShowModal(true)}>
           <Plus size={16} /> Add Employee
@@ -304,6 +334,14 @@ export default function EmployeesClient() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
+                      {/* View Profile */}
+                      <Link
+                        href={`/admin/employees/${emp.id}`}
+                        title="View Profile"
+                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Eye size={14} />
+                      </Link>
                       {/* Edit */}
                       <button
                         onClick={() => openEdit(emp)}

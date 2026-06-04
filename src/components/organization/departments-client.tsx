@@ -6,7 +6,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export default function DepartmentsClient({ initialData, users }: { initialData: any[], users: any[] }) {
+export default function DepartmentsClient({ initialData, users, branches = [], allDepartments = [] }: { initialData: any[], users: any[], branches?: any[], allDepartments?: any[] }) {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export default function DepartmentsClient({ initialData, users }: { initialData:
 
   // Form State
   const defaultForm = {
-    name: "", code: "", description: "", headId: "", isActive: true
+    name: "", code: "", description: "", headId: "", branchId: "", parentDepartmentId: "", isActive: true
   };
   const [formData, setFormData] = useState(defaultForm);
 
@@ -89,6 +89,8 @@ export default function DepartmentsClient({ initialData, users }: { initialData:
       code: dept.code || "",
       description: dept.description || "",
       headId: dept.headId || "",
+      branchId: dept.branchId || "",
+      parentDepartmentId: dept.parentDepartmentId || "",
       isActive: dept.isActive ?? true
     });
     setEditingId(dept.id);
@@ -192,6 +194,33 @@ export default function DepartmentsClient({ initialData, users }: { initialData:
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Branch</label>
+                  <select
+                    value={formData.branchId} onChange={(e) => setFormData({...formData, branchId: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Select Branch...</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Parent Department</label>
+                  <select
+                    value={formData.parentDepartmentId} onChange={(e) => setFormData({...formData, parentDepartmentId: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">None (Top Level)</option>
+                    {allDepartments.filter(d => d.id !== editingId).map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Description</label>
                 <textarea
@@ -241,6 +270,7 @@ export default function DepartmentsClient({ initialData, users }: { initialData:
             <tr className="bg-muted/50 text-muted-foreground text-xs uppercase tracking-wider">
               <th className="px-6 py-4 font-medium">Department</th>
               <th className="px-6 py-4 font-medium">Code</th>
+              <th className="px-6 py-4 font-medium">Branch</th>
               <th className="px-6 py-4 font-medium">Head</th>
               <th className="px-6 py-4 font-medium">Teams</th>
               <th className="px-6 py-4 font-medium">Employees</th>
@@ -263,6 +293,7 @@ export default function DepartmentsClient({ initialData, users }: { initialData:
                     {dept.description && <div className="text-xs text-muted-foreground mt-0.5 max-w-[200px] truncate">{dept.description}</div>}
                   </td>
                   <td className="px-6 py-4 text-foreground">{dept.code || "—"}</td>
+                  <td className="px-6 py-4 text-foreground">{dept.branch?.name || "—"}</td>
                   <td className="px-6 py-4 text-muted-foreground">
                     {dept.head?.name ? (
                       <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-xs font-medium">

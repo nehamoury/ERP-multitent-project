@@ -2,6 +2,47 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getAuth();
+  if (!session?.user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+
+  try {
+    const branch = await prisma.branch.findUnique({
+      where: { id: params.id, vendorId: session.user.vendorId },
+      include: {
+        manager: {
+          select: { id: true, name: true, email: true, phone: true }
+        },
+        _count: {
+          select: { users: true, departments: true, teams: true }
+        }
+      }
+    });
+
+    if (!branch) {
+      return NextResponse.json({ success: false, message: "Branch not found" }, { status: 404 });
+    }
+
+    // Since Project model doesn't have a branchId yet, we count projects by users in the branch who are managers, 
+    // or we just return 0 for now as project association needs a direct relationship or complex traversal.
+    // Let's add a dummy project count for now and we can improve later.
+    const projectCount = 0; 
+
+    return NextResponse.json({ 
+      success: true, 
+      data: {
+        ...branch,
+        _count: {
+          ...branch._count,
+          projects: projectCount
+        }
+      } 
+    });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, message: "Failed to fetch branch details", errors: [error.message] }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getAuth();
   if (!session?.user || !["ADMIN", "SUPER_ADMIN", "HR"].includes(session.user.role)) {
@@ -50,8 +91,9 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 
   try {
-    const branch = await prisma.branch.delete({
+    const branch = await prisma.branch.update({
       where: { id: params.id, vendorId: session.user.vendorId },
+      data: { isActive: false, updatedBy: session.user.id }
     });
 
     await prisma.activityLog.create({

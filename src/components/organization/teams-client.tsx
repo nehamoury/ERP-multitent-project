@@ -6,7 +6,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-export default function TeamsClient({ initialData, departments, users }: { initialData: any[], departments: any[], users: any[] }) {
+export default function TeamsClient({ initialData, departments, branches, users }: { initialData: any[], departments: any[], branches: any[], users: any[] }) {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export default function TeamsClient({ initialData, departments, users }: { initi
 
   // Form State
   const defaultForm = {
-    name: "", departmentId: "", description: "", leadId: "", isActive: true
+    name: "", code: "", departmentId: "", branchId: "", description: "", leadId: "", maxMembers: "", isActive: true
   };
   const [formData, setFormData] = useState(defaultForm);
 
@@ -86,9 +86,12 @@ export default function TeamsClient({ initialData, departments, users }: { initi
   const openEditModal = (team: any) => {
     setFormData({
       name: team.name || "",
+      code: team.code || "",
       departmentId: team.departmentId || "",
+      branchId: team.branchId || "",
       description: team.description || "",
       leadId: team.leadId || "",
+      maxMembers: team.maxMembers ? team.maxMembers.toString() : "",
       isActive: team.isActive ?? true
     });
     setEditingId(team.id);
@@ -158,42 +161,80 @@ export default function TeamsClient({ initialData, departments, users }: { initi
             </div>
             
             <form onSubmit={handleAdd} className="p-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Team Name *</label>
-                <input
-                  type="text" required
-                  value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="e.g. Frontend Team, Enterprise Sales..."
-                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  autoFocus
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Team Name *</label>
+                  <input
+                    type="text" required
+                    value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g. Frontend Team..."
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Team Code *</label>
+                  <input
+                    type="text" required
+                    value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})}
+                    placeholder="e.g. TM-FRNT-01"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 uppercase"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Department *</label>
-                <select
-                  required
-                  value={formData.departmentId} onChange={(e) => setFormData({...formData, departmentId: e.target.value})}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">Select Department...</option>
-                  {departments.map(dept => (
-                    <option key={dept.id} value={dept.id}>{dept.name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Branch</label>
+                  <select
+                    value={formData.branchId} onChange={(e) => setFormData({...formData, branchId: e.target.value, departmentId: ""})}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Select Branch...</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Department *</label>
+                  <select
+                    required
+                    value={formData.departmentId} onChange={(e) => setFormData({...formData, departmentId: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Select Department...</option>
+                    {departments
+                      .filter((d: any) => !formData.branchId || !d.branchId || d.branchId === formData.branchId)
+                      .map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Team Lead</label>
-                <select
-                  value={formData.leadId} onChange={(e) => setFormData({...formData, leadId: e.target.value})}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">Select Lead...</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.employeeId})</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Team Lead</label>
+                  <select
+                    value={formData.leadId} onChange={(e) => setFormData({...formData, leadId: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Select Lead...</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.employeeId})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Max Members</label>
+                  <input
+                    type="number" min="1"
+                    value={formData.maxMembers} onChange={(e) => setFormData({...formData, maxMembers: e.target.value})}
+                    placeholder="Unlimited if empty"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
               </div>
 
               <div>
@@ -244,7 +285,8 @@ export default function TeamsClient({ initialData, departments, users }: { initi
           <thead>
             <tr className="bg-muted/50 text-muted-foreground text-xs uppercase tracking-wider">
               <th className="px-6 py-4 font-medium">Team</th>
-              <th className="px-6 py-4 font-medium">Department</th>
+              <th className="px-6 py-4 font-medium">Code</th>
+              <th className="px-6 py-4 font-medium">Branch / Department</th>
               <th className="px-6 py-4 font-medium">Lead</th>
               <th className="px-6 py-4 font-medium">Members</th>
               <th className="px-6 py-4 font-medium">Status</th>
@@ -265,7 +307,11 @@ export default function TeamsClient({ initialData, departments, users }: { initi
                     <div className="font-medium text-foreground">{team.name}</div>
                     {team.description && <div className="text-xs text-muted-foreground mt-0.5 max-w-[200px] truncate">{team.description}</div>}
                   </td>
-                  <td className="px-6 py-4 text-foreground">{team.department?.name || "—"}</td>
+                  <td className="px-6 py-4 text-foreground font-mono text-xs">{team.code || "—"}</td>
+                  <td className="px-6 py-4">
+                    <div className="text-foreground">{team.department?.name || "—"}</div>
+                    {team.branch?.name && <div className="text-xs text-muted-foreground mt-0.5">{team.branch.name}</div>}
+                  </td>
                   <td className="px-6 py-4 text-muted-foreground">
                     {team.lead?.name ? (
                       <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-xs font-medium">
@@ -273,7 +319,12 @@ export default function TeamsClient({ initialData, departments, users }: { initi
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">{team._count?.users || 0}</td>
+                  <td className="px-6 py-4">
+                    <div className="text-muted-foreground">{team._count?.users || 0} {team.maxMembers ? `/ ${team.maxMembers}` : ''}</div>
+                    {team.maxMembers && team._count?.users >= (team.maxMembers * 0.8) && (
+                      <div className="text-[10px] text-amber-500 font-medium mt-1">Near Capacity</div>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex px-2 py-1 text-[10px] font-bold uppercase rounded-full ${team.isActive ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'}`}>
                       {team.isActive ? 'Active' : 'Inactive'}

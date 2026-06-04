@@ -1,21 +1,22 @@
 "use client";
 
-import { Users, UsersRound, Building2, Briefcase } from "lucide-react";
+import { Users, UsersRound, Building2, Briefcase, MessageSquare } from "lucide-react";
 import { getAvatarColor, getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-export default function DepartmentDashboardClient({ department }: { department: any }) {
+export default function DepartmentDashboardClient({ department, chatRoomId }: { department: any, chatRoomId?: string }) {
   const stats = [
     { label: "Total Teams", value: department.teams.length, icon: UsersRound, color: "text-blue-500", bg: "bg-blue-100 dark:bg-blue-900/30" },
     { label: "Total Employees", value: department.users.length, icon: Users, color: "text-indigo-500", bg: "bg-indigo-100 dark:bg-indigo-900/30" },
+    { label: "Total Projects", value: department.projects?.length || 0, icon: Briefcase, color: "text-purple-500", bg: "bg-purple-100 dark:bg-purple-900/30" },
   ];
 
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm col-span-1 md:col-span-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm col-span-1 md:col-span-3 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div>
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Department Head</h3>
             {department.head ? (
@@ -36,10 +37,17 @@ export default function DepartmentDashboardClient({ department }: { department: 
                 <span>No Department Head assigned</span>
               </div>
             )}
+            
+            {chatRoomId && (
+              <Link href={`/admin/messages?room=${chatRoomId}`} className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg font-medium transition-colors text-sm">
+                <MessageSquare size={16} />
+                Open Department Chat
+              </Link>
+            )}
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {stats.map((stat, i) => (
-              <div key={i} className="flex flex-col items-center p-4 bg-muted/50 rounded-xl min-w-[120px]">
+              <div key={i} className="flex flex-col items-center p-4 bg-muted/50 rounded-xl min-w-[120px] flex-1">
                 <div className={cn("p-2 rounded-lg mb-2", stat.bg, stat.color)}>
                   <stat.icon size={20} />
                 </div>
@@ -129,6 +137,37 @@ export default function DepartmentDashboardClient({ department }: { department: 
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+        </div>
+
+        {/* Projects List */}
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden flex flex-col lg:col-span-2">
+          <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Briefcase size={16} className="text-muted-foreground" />
+              Department Projects
+            </h3>
+            <Link href="/admin/projects" className="text-sm text-primary hover:underline">View All</Link>
+          </div>
+          <div className="p-4">
+            {department.projects && department.projects.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {department.projects.map((project: any) => (
+                  <div key={project.id} className="border border-border rounded-xl p-4 hover:bg-muted/30 transition-colors">
+                    <h4 className="font-semibold">{project.name}</h4>
+                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Status: {project.status}</span>
+                      <span>Tasks: {project._count?.tasks || 0}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-muted-foreground py-8">
+                <Briefcase size={32} className="mb-2 opacity-20" />
+                <p>No projects assigned to this department.</p>
+              </div>
             )}
           </div>
         </div>

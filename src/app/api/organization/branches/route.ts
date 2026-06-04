@@ -7,19 +7,53 @@ export async function GET(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ success: false, message: "Unauthorized", errors: [] }, { status: 401 });
 
   try {
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search') || '';
+    const isActive = searchParams.get('isActive');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      vendorId: session.user.vendorId,
+      ...(search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+          { city: { contains: search, mode: 'insensitive' } }
+        ]
+      } : {}),
+      ...(isActive !== null ? { isActive: isActive === 'true' } : { isActive: true }) // Default to active only unless specified
+    };
+
     const branches = await prisma.branch.findMany({
-      where: { vendorId: session.user.vendorId },
+      where,
       orderBy: { name: 'asc' },
+      skip,
+      take: limit,
       include: {
         _count: {
-          select: { users: true }
+          select: { users: true, departments: true, teams: true }
         },
         manager: {
           select: { id: true, name: true }
         }
       }
     });
-    return NextResponse.json({ success: true, message: "Branches fetched successfully", data: branches });
+
+    const total = await prisma.branch.count({ where });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Branches fetched successfully", 
+      data: branches,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: "Failed to fetch branches", errors: [error.message] }, { status: 500 });
   }

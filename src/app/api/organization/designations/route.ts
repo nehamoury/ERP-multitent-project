@@ -6,18 +6,42 @@ export async function GET(req: NextRequest) {
   const session = await getAuth();
   if (!session?.user) return NextResponse.json({ success: false, message: "Unauthorized", errors: [] }, { status: 401 });
 
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get("search") || "";
+  const departmentId = searchParams.get("departmentId") || "";
+  const isActive = searchParams.get("isActive");
+
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = parseInt(searchParams.get("limit") || "10");
+  const skip = (page - 1) * limit;
+
   try {
-    const designations = await prisma.designation.findMany({
-      where: { vendorId: session.user.vendorId },
-      orderBy: { name: 'asc' },
-      include: {
-        department: { select: { id: true, name: true } },
-        _count: {
-          select: { users: true }
+    const where: any = { vendorId: session.user.vendorId };
+    if (search) where.name = { contains: search, mode: "insensitive" };
+    if (departmentId) where.departmentId = departmentId;
+    if (isActive !== null) where.isActive = isActive === "true";
+
+    const [designations, total] = await Promise.all([
+      prisma.designation.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+        include: {
+          department: { select: { id: true, name: true } },
+          _count: {
+            select: { users: true }
+          }
         }
-      }
+      }),
+      prisma.designation.count({ where })
+    ]);
+    return NextResponse.json({ 
+      success: true, 
+      message: "Designations fetched successfully", 
+      data: designations,
+      meta: { total, page, limit }
     });
-    return NextResponse.json({ success: true, message: "Designations fetched successfully", data: designations });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: "Failed to fetch designations", errors: [error.message] }, { status: 500 });
   }

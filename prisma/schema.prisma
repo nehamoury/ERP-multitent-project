@@ -150,6 +150,10 @@ model Vendor {
   employeeHistory     EmployeeHistory[]
   documents           Document[]
   supportTickets      SupportTicket[]
+  chatRooms           ChatRoom[]
+  chatParticipants    ChatParticipant[]
+  messages            Message[]
+  messageReads        MessageRead[]
 
   @@map("vendors")
 }
@@ -223,6 +227,9 @@ model User {
   uploadedDocuments Document[]     @relation("DocumentUploader")
   createdTickets    SupportTicket[] @relation("TicketCreator")
   assignedTickets   SupportTicket[] @relation("TicketAssignee")
+  chatParticipants  ChatParticipant[]
+  sentMessages      Message[]
+  messageReads      MessageRead[]
 
   @@unique([vendorId, employeeId])
   @@unique([id, vendorId])
@@ -405,6 +412,8 @@ model Branch {
   vendor  Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   manager User?  @relation("BranchManager", fields: [managerId], references: [id])
   users   User[]
+  departments Department[]
+  teams       Team[]
 
   @@unique([name, vendorId])
   @@index([vendorId])
@@ -425,13 +434,21 @@ model Department {
   updatedAt   DateTime @updatedAt
 
   vendor       Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId     String?
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  parentDepartmentId String?
+  parentDepartment   Department?  @relation("ParentChildDepartment", fields: [parentDepartmentId], references: [id], onDelete: SetNull)
+  childDepartments   Department[] @relation("ParentChildDepartment")
   head         User?         @relation("DepartmentHead", fields: [headId], references: [id])
   teams        Team[]
   designations Designation[]
   users        User[]
+  projects     Project[]
 
   @@unique([name, vendorId])
   @@index([vendorId])
+  @@index([branchId])
+  @@index([parentDepartmentId])
   @@map("departments")
 }
 
@@ -440,8 +457,10 @@ model Team {
   vendorId     String
   departmentId String
   name         String
+  code         String?
   description  String?  @db.Text
   isActive     Boolean  @default(true)
+  maxMembers   Int?
   leadId       String?
   createdBy    String?
   updatedBy    String?
@@ -449,12 +468,17 @@ model Team {
   updatedAt    DateTime @updatedAt
 
   vendor     Vendor     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     Branch?    @relation(fields: [branchId], references: [id])
   department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   lead       User?      @relation("TeamLead", fields: [leadId], references: [id])
   users      User[]
+  projects   Project[]
 
   @@unique([name, departmentId])
+  @@unique([code, vendorId])
   @@index([vendorId])
+  @@index([branchId])
   @@index([departmentId])
   @@map("teams")
 }
@@ -633,17 +657,23 @@ model Project {
   startDate   DateTime?
   endDate     DateTime?
   managerId   String
+  departmentId String?
+  teamId       String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  vendor  Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  manager User   @relation("ProjectManager", fields: [managerId], references: [id])
-  members User[] @relation("ProjectMembers")
-  tasks   Task[]
+  vendor     Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  manager    User        @relation("ProjectManager", fields: [managerId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  team       Team?       @relation(fields: [teamId], references: [id])
+  members    User[]      @relation("ProjectMembers")
+  tasks      Task[]
 
   @@unique([id, vendorId])
   @@index([vendorId])
   @@index([managerId])
+  @@index([departmentId])
+  @@index([teamId])
   @@map("projects")
 }
 
@@ -950,4 +980,121 @@ model SupportTicket {
   @@index([creatorId])
   @@index([assignedToId])
   @@map("support_tickets")
+}
+
+// ─── Chat System ──────────────────────────────────────────────────────────────
+
+enum ChatRoomType {
+  DIRECT
+  GROUP
+  PROJECT
+  DEPARTMENT
+  TEAM
+  BROADCAST
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  PDF
+  DOC
+  AUDIO
+  VIDEO
+}
+
+model ChatRoom {
+  id            String   @id @default(cuid())
+  vendorId      String
+
+  name          String?
+  type          ChatRoomType
+
+  projectId     String?
+  departmentId  String?
+  teamId        String?
+
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  participants  ChatParticipant[]
+  messages      Message[]
+
+  vendor        Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  @@index([vendorId])
+  @@map("chat_rooms")
+}
+
+model ChatParticipant {
+  id          String @id @default(cuid())
+  vendorId    String
+
+  roomId      String
+  userId      String
+
+  joinedAt    DateTime @default(now())
+  isAdmin     Boolean @default(false)
+
+  room        ChatRoom @relation(fields:[roomId], references:[id], onDelete: Cascade)
+  user        User @relation(fields:[userId], references:[id], onDelete: Cascade)
+  vendor      Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId, vendorId])
+  @@index([vendorId])
+  @@index([roomId])
+  @@index([userId])
+  @@map("chat_participants")
+}
+
+model Message {
+  id            String @id @default(cuid())
+  vendorId      String
+
+  roomId        String
+  senderId      String
+
+  messageType   MessageType
+  content       String?     @db.Text
+  fileUrl       String?
+  fileName      String?
+  fileSize      Int?
+
+  isEdited      Boolean  @default(false)
+  isDeleted     Boolean  @default(false)
+  replyToId     String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  room          ChatRoom @relation(fields:[roomId], references:[id], onDelete: Cascade)
+  sender        User @relation(fields:[senderId], references:[id], onDelete: Cascade)
+  vendor        Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  replyTo       Message?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies       Message[] @relation("MessageReplies")
+  reads         MessageRead[]
+
+  @@index([vendorId])
+  @@index([roomId])
+  @@map("messages")
+}
+
+model MessageRead {
+  id          String @id @default(cuid())
+  vendorId    String
+
+  messageId   String
+  userId      String
+
+  readAt      DateTime @default(now())
+
+  message     Message @relation(fields:[messageId], references:[id], onDelete: Cascade)
+  user        User @relation(fields:[userId], references:[id], onDelete: Cascade)
+  vendor      Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, vendorId])
+  @@index([vendorId])
+  @@map("message_reads")
 }

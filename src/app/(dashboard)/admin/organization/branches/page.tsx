@@ -19,7 +19,7 @@ export default async function BranchesPage() {
     where: { vendorId: session.user.vendorId },
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { users: true } },
+      _count: { select: { users: true, departments: true, teams: true } },
       manager: { select: { id: true, name: true } }
     }
   });

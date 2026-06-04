@@ -4,16 +4,21 @@ import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/utils";
+import { syncDepartmentChatMembers, syncTeamChatMembers } from "@/lib/chat-sync";
 
 export async function GET(req: NextRequest) {
   const session = await getAuth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["ADMIN", "HR"].includes(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // All authenticated users can view the employee directory
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || "";
   const dept = searchParams.get("dept") || "";
   const role = searchParams.get("role") || "";
+  const branchId = searchParams.get("branchId") || "";
+  const teamId = searchParams.get("teamId") || "";
+  const designationId = searchParams.get("designationId") || "";
+  const isActive = searchParams.get("isActive");
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
 
@@ -26,8 +31,12 @@ export async function GET(req: NextRequest) {
         { employeeId: { contains: search, mode: "insensitive" } },
       ];
     }
-    if (dept) where.department = dept;
+    if (dept) where.department = { name: dept };
+    if (branchId) where.branchId = branchId;
+    if (teamId) where.teamId = teamId;
+    if (designationId) where.designationId = designationId;
     if (role) where.role = role;
+    if (isActive !== null && isActive !== undefined) where.isActive = isActive === "true";
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -161,7 +170,7 @@ export async function PATCH(req: NextRequest) {
     // Verify the employee belongs to this vendor first
     const existing = await prisma.user.findFirst({
       where: { id, vendorId: session.user.vendorId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, departmentId: true, teamId: true },
     });
     if (!existing) return NextResponse.json({ error: "Employee not found" }, { status: 404 });
 
@@ -195,6 +204,26 @@ export async function PATCH(req: NextRequest) {
       where: { id },
       data: updatePayload,
     });
+
+    // Sync Department Chat Members if department changed
+    if (departmentId !== undefined) {
+      const oldDeptId = existing.departmentId;
+      const newDeptId = updatePayload.departmentId;
+      if (oldDeptId !== newDeptId) {
+        if (oldDeptId) await syncDepartmentChatMembers(oldDeptId, session.user.vendorId);
+        if (newDeptId) await syncDepartmentChatMembers(newDeptId, session.user.vendorId);
+      }
+    }
+
+    // Sync Team Chat Members if team changed
+    if (teamId !== undefined) {
+      const oldTeamId = existing.teamId;
+      const newTeamId = updatePayload.teamId;
+      if (oldTeamId !== newTeamId) {
+        if (oldTeamId) await syncTeamChatMembers(oldTeamId, session.user.vendorId);
+        if (newTeamId) await syncTeamChatMembers(newTeamId, session.user.vendorId);
+      }
+    }
 
     await logAudit(session.user.id, session.user.vendorId, "UPDATE", "User", id, `Updated employee ${user.name}`);
     return NextResponse.json({ success: true, user });

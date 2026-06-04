@@ -15,17 +15,23 @@ export default async function TeamsPage() {
   const session = await getAuth();
   if (!session?.user || session.user.role !== "ADMIN") return null;
 
-  const [teams, departments, users] = await Promise.all([
+  const [teams, departments, branches, users] = await Promise.all([
     prisma.team.findMany({
       where: { vendorId: session.user.vendorId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { name: 'asc' },
       include: {
         department: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
         _count: { select: { users: true } },
         lead: { select: { id: true, name: true } }
       }
     }),
     prisma.department.findMany({
+      where: { vendorId: session.user.vendorId },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, branchId: true }
+    }),
+    prisma.branch.findMany({
       where: { vendorId: session.user.vendorId },
       orderBy: { name: 'asc' },
       select: { id: true, name: true }
@@ -46,7 +52,7 @@ export default async function TeamsPage() {
         </p>
       </div>
 
-      <TeamsClient initialData={teams} departments={departments} users={users} />
+      <TeamsClient initialData={teams} departments={departments} branches={branches} users={users} />
     </div>
   );
 }

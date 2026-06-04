@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useSocket } from "@/hooks/useSocket";
 
 interface Props {
   user: { name: string; email: string; role: string; department?: string; designation?: string };
@@ -60,6 +61,9 @@ export default function Topbar({ user }: Props) {
   const playNotificationSound = () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
       // First tone
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
@@ -97,10 +101,29 @@ export default function Topbar({ user }: Props) {
       const json = await res.json();
       return json.notifications as Notification[];
     },
-    refetchInterval: 15000, // Poll every 15 seconds for near real-time
+    // Removed refetchInterval, now socket-driven
   });
 
   const notifications = data || [];
+  
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleNewNotification = (notificationData: any) => {
+      // Play sound immediately on receiving socket event
+      playNotificationSound();
+      // Invalidate query to fetch the latest notification data
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    };
+
+    socket.on('new-notification', handleNewNotification);
+    
+    return () => {
+      socket.off('new-notification', handleNewNotification);
+    };
+  }, [socket, queryClient]);
 
   const markReadMutation = useMutation({
     mutationFn: async ({ id, markAllRead }: { id?: string; markAllRead?: boolean }) => {
@@ -120,15 +143,6 @@ export default function Topbar({ user }: Props) {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // Play sound when new unread notifications arrive
-  useEffect(() => {
-    const currentUnread = notifications.filter((n) => !n.isRead).length;
-    if (mounted && currentUnread > prevUnreadRef.current && prevUnreadRef.current >= 0) {
-      playNotificationSound();
-    }
-    prevUnreadRef.current = currentUnread;
-  }, [notifications, mounted]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {

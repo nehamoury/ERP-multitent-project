@@ -20,13 +20,21 @@ export default async function DepartmentsPage() {
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { teams: true, designations: true, users: true } },
-      head: { select: { id: true, name: true } }
+      head: { select: { id: true, name: true } },
+      branch: { select: { id: true, name: true } },
+      parentDepartment: { select: { id: true, name: true } }
     }
   });
 
   const users = await prisma.user.findMany({
     where: { vendorId: session.user.vendorId, isActive: true },
     select: { id: true, name: true, employeeId: true },
+    orderBy: { name: "asc" }
+  });
+
+  const branches = await prisma.branch.findMany({
+    where: { vendorId: session.user.vendorId, isActive: true },
+    select: { id: true, name: true },
     orderBy: { name: "asc" }
   });
 
@@ -39,7 +47,7 @@ export default async function DepartmentsPage() {
         </p>
       </div>
 
-      <DepartmentsClient initialData={departments} users={users} />
+      <DepartmentsClient initialData={departments} users={users} branches={branches} allDepartments={departments} />
     </div>
   );
 }

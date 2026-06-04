@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Clock, Calendar, BarChart3,
   FileText, Settings, ShieldCheck, ClipboardList, LogOut, ChevronLeft, ChevronRight, QrCode,
   Megaphone, Briefcase, CreditCard, Lock, DollarSign, Building2, ChevronDown,
-  Wallet, UserCircle, PartyPopper, Headphones, FolderOpen
+  Wallet, UserCircle, PartyPopper, Headphones, FolderOpen, MessageSquare
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
@@ -76,6 +76,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Employees", href: "/hr/employees", icon: Users, roles: ["HR"] },
   { label: "Notice Board", href: "/admin/notices", icon: Megaphone, roles: ["ADMIN"] },
   { label: "Notice Board", href: "/hr/notices", icon: Megaphone, roles: ["HR"] },
+  { label: "Messages", href: "/admin/messages", icon: MessageSquare, roles: ["ADMIN"] },
+  { label: "Messages", href: "/hr/messages", icon: MessageSquare, roles: ["HR"] },
   { label: "Projects & Tasks", href: "/admin/projects", icon: Briefcase, roles: ["ADMIN"], feature: "Projects" },
   { label: "Projects & Tasks", href: "/hr/projects", icon: Briefcase, roles: ["HR"], feature: "Projects" },
   { label: "Attendance", href: "/admin/attendance", icon: Clock, roles: ["ADMIN"], feature: "Attendance" },
@@ -106,6 +108,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "My Profile", href: "/employee/profile", icon: UserCircle, roles: ["EMPLOYEE"] },
   { label: "Notice Board", href: "/employee/notices", icon: Megaphone, roles: ["EMPLOYEE"] },
   { label: "Holidays", href: "/employee/holidays", icon: PartyPopper, roles: ["EMPLOYEE"] },
+  { label: "Messages", href: "/employee/messages", icon: MessageSquare, roles: ["EMPLOYEE"] },
   { label: "Documents", href: "/employee/documents", icon: FolderOpen, roles: ["EMPLOYEE"] },
   { label: "My Tasks", href: "/employee/projects", icon: Briefcase, roles: ["EMPLOYEE"], feature: "Projects" },
   { label: "Work Reports", href: "/employee/work-reports", icon: ClipboardList, roles: ["EMPLOYEE"] },

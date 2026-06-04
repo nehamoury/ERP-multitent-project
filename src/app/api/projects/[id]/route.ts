@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { logAudit } from "@/lib/utils";
+import { syncProjectChatMembers } from "@/lib/chat-sync";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     const session = await getAuth();
@@ -72,6 +73,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             where: { id: params.id, vendorId: session.user.vendorId },
             data: updateData
         });
+
+        // Sync Project Chat Members if members/manager changed
+        if (teamMemberIds !== undefined || managerId !== undefined) {
+            await syncProjectChatMembers(project.id, session.user.vendorId);
+        }
 
         await logAudit(session.user.id, session.user.vendorId, "UPDATE", "Project", project.id, `Updated project: ${project.name}`);
         return NextResponse.json({ success: true, project });
