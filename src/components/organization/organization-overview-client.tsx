@@ -22,7 +22,7 @@ interface Props {
   }
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#eab308'];
 
 export default function OrganizationOverviewClient({ data }: Props) {
   const { data: analytics, isLoading } = useQuery({
@@ -90,17 +90,31 @@ export default function OrganizationOverviewClient({ data }: Props) {
                         data={distributionData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={2}
+                        innerRadius={65}
+                        outerRadius={100}
+                        paddingAngle={3}
                         dataKey="value"
+                        stroke="hsl(var(--card))"
+                        strokeWidth={2}
                       >
                         {distributionData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <RechartsTooltip />
-                      <Legend />
+                      <RechartsTooltip 
+                        contentStyle={{ 
+                          borderRadius: '8px', 
+                          border: '1px solid hsl(var(--border))', 
+                          backgroundColor: 'hsl(var(--card))', 
+                          color: 'hsl(var(--foreground))',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                        }} 
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Legend 
+                        iconType="circle" 
+                        wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
@@ -120,12 +134,26 @@ export default function OrganizationOverviewClient({ data }: Props) {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={analytics.charts.employeesByBranch} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                    <BarChart data={analytics.charts.employeesByBranch} margin={{ top: 20, right: 30, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} dy={10} />
                       <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
-                      <RechartsTooltip cursor={{ fill: 'hsl(var(--muted)/0.5)' }} contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }} />
-                      <Bar dataKey="employees" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                      <RechartsTooltip 
+                        cursor={{ fill: 'hsl(var(--muted)/0.4)' }} 
+                        contentStyle={{ 
+                          borderRadius: '8px', 
+                          border: '1px solid hsl(var(--border))', 
+                          backgroundColor: 'hsl(var(--card))', 
+                          color: 'hsl(var(--foreground))',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                        }} 
+                      />
+                      <Bar 
+                        dataKey="employees" 
+                        fill="#3b82f6" 
+                        radius={[6, 6, 0, 0]} 
+                        maxBarSize={40} 
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
