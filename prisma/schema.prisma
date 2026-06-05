@@ -117,6 +117,8 @@ model Vendor {
   billingAddress String?
   state          String?
   gstin          String?
+  code           String?
+  website        String?
   status         VendorStatus @default(PENDING)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -374,12 +376,20 @@ model Notification {
 model CompanySettings {
   id                String   @id @default(cuid())
   vendorId          String   @unique
-  companyName       String   @default("Acme Corp")
-  workingHoursStart String   @default("09:00")
-  workingHoursEnd   String   @default("18:00")
-  lateThreshold     Int      @default(15)
-  timezone          String   @default("Asia/Kolkata")
-  workingDays       Json     @default("[1,2,3,4,5]")
+  companyName         String   @default("Acme Corp")
+  workingHoursStart   String   @default("09:00")
+  workingHoursEnd     String   @default("18:00")
+  breakStart          String?
+  breakEnd            String?
+  gracePeriod         Int      @default(15)
+  lateThreshold       Int      @default(15)
+  halfDayThreshold    Int      @default(240)
+  absentThreshold     Int      @default(480)
+  minimumWorkingHours Int      @default(8)
+  overtimeEnabled     Boolean  @default(false)
+  timezone            String   @default("Asia/Kolkata")
+  workingDays         Json     @default("[1,2,3,4,5]")
+  halfDaySupport      Boolean  @default(false)
   updatedAt         DateTime @updatedAt
 
   // Relations

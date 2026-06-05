@@ -340,21 +340,21 @@ export default function Topbar({ user }: Props) {
               <div className="h-px bg-border my-1" />
               
               <button 
-                onClick={() => { setProfileOpen(false); router.push(user.role === 'EMPLOYEE' ? '/employee/profile' : `${getBasePath(user.role)}/settings`); }}
+                onClick={() => { setProfileOpen(false); router.push('/profile'); }}
                 className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-muted flex items-center gap-2 transition-colors"
               >
                 <User size={16} className="text-muted-foreground" /> View Profile
               </button>
               
               <button 
-                onClick={() => { setProfileOpen(false); router.push(`${getBasePath(user.role)}/settings`); }}
+                onClick={() => { setProfileOpen(false); router.push('/settings'); }}
                 className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-muted flex items-center gap-2 transition-colors"
               >
                 <Settings size={16} className="text-muted-foreground" /> Account Settings
               </button>
               
               <button 
-                onClick={() => { setProfileOpen(false); router.push(`${getBasePath(user.role)}/support`); }}
+                onClick={() => { setProfileOpen(false); router.push(`/help-support`); }}
                 className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-muted flex items-center gap-2 transition-colors"
               >
                 <ExternalLink size={16} className="text-muted-foreground" /> Help & Support

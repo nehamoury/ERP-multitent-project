@@ -99,13 +99,14 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Documents", href: "/admin/documents", icon: FolderOpen, roles: ["ADMIN"] },
   { label: "Support Tickets", href: "/admin/support", icon: Headphones, roles: ["ADMIN"] },
   { label: "Permissions", href: "/admin/permissions", icon: Lock, roles: ["ADMIN"] },
+  { label: "Organization Settings", href: "/admin/settings", icon: Settings, roles: ["ADMIN"] },
 
   // ── Employee Navigation ───────────────────────────────────────────────────
   { label: "Dashboard", href: "/employee", icon: LayoutDashboard, roles: ["EMPLOYEE"] },
   { label: "My Attendance", href: "/employee/attendance", icon: Clock, roles: ["EMPLOYEE"], feature: "Attendance" },
   { label: "My Leaves", href: "/employee/leaves", icon: Calendar, roles: ["EMPLOYEE"], feature: "Leave Management" },
   { label: "My Payroll", href: "/employee/salary", icon: Wallet, roles: ["EMPLOYEE"] },
-  { label: "My Profile", href: "/employee/profile", icon: UserCircle, roles: ["EMPLOYEE"] },
+  { label: "My Profile", href: "/profile", icon: UserCircle, roles: ["EMPLOYEE"] },
   { label: "Notice Board", href: "/employee/notices", icon: Megaphone, roles: ["EMPLOYEE"] },
   { label: "Holidays", href: "/employee/holidays", icon: PartyPopper, roles: ["EMPLOYEE"] },
   { label: "Messages", href: "/employee/messages", icon: MessageSquare, roles: ["EMPLOYEE"] },
