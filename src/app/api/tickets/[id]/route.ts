@@ -22,7 +22,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     // Only HR/ADMIN can update someone else's ticket status/assignee, but let's assume they have permission for now.
     const updated = await prisma.supportTicket.update({
-      where: { id: params.id },
+      where: { id_vendorId: { id: params.id, vendorId: session.user.vendorId } },
       data: {
         status: status !== undefined ? status : undefined,
         priority: priority !== undefined ? priority : undefined,

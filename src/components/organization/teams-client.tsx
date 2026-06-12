@@ -221,7 +221,9 @@ export default function TeamsClient({ initialData, departments, branches, users 
                     className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
                     <option value="">Select Lead...</option>
-                    {users.map(u => (
+                    {users
+                      .filter(u => (!formData.branchId || u.branchId === formData.branchId) && (!formData.departmentId || u.departmentId === formData.departmentId))
+                      .map(u => (
                       <option key={u.id} value={u.id}>{u.name} ({u.employeeId})</option>
                     ))}
                   </select>

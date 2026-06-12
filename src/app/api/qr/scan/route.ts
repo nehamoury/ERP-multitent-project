@@ -20,7 +20,8 @@ function verifyPayload(payload: {
     const age = Date.now() - payload.ts;
     if (age > 24 * 60 * 60 * 1000) return false;
 
-    const secret = process.env.NEXTAUTH_SECRET || "default-secret";
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (!secret) return false;
     const raw = `${payload.userId}:${payload.employeeId}:${payload.nonce}:${payload.ts}`;
     const expected = crypto
       .createHmac("sha256", secret)

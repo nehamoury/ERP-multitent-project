@@ -2,6 +2,15 @@
 import "next-auth";
 import "next-auth/jwt";
 
+interface SubscriptionInfo {
+  status: string;
+  planName: string;
+  features: string[];
+  maxEmployees: number;
+  maxBranches: number;
+  maxStorageMB: number;
+}
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -13,13 +22,11 @@ declare module "next-auth" {
       role: string;
       department: string;
       designation: string;
+      branchId: string | null;
       image?: string;
-      subscription?: {
-        status: string;
-        planName: string;
-        features: any;
-        maxEmployees: number;
-      } | null;
+      subscription?: SubscriptionInfo | null;
+      isImpersonating?: boolean;
+      originalRole?: string;
     };
   }
 
@@ -32,8 +39,9 @@ declare module "next-auth" {
     role: string;
     department: string;
     designation: string;
+    branchId: string | null;
     image?: string;
-    subscription?: any;
+    subscription?: SubscriptionInfo | null;
   }
 }
 
@@ -45,6 +53,11 @@ declare module "next-auth/jwt" {
     role: string;
     department: string;
     designation: string;
-    subscription?: any;
+    branchId: string | null;
+    subscription?: SubscriptionInfo | null;
+    isImpersonating?: boolean;
+    originalRole?: string;
+    originalUserId?: string;
+    originalVendorId?: string;
   }
 }

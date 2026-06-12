@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { rateLimit } from "@/lib/rate-limit";
 
 function generateSlug(name: string): string {
   return name
@@ -10,6 +11,12 @@ function generateSlug(name: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+  const limit = rateLimit(ip, 3, 60 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Too many registration attempts. Try again later." }, { status: 429 });
+  }
+
   try {
     const body = await req.json();
     const { companyName, adminName, email, phone, password } = body;

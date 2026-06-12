@@ -44,6 +44,15 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Plans", href: "/super-admin/subscriptions/plans" },
     ]
   },
+  { 
+    label: "Sales", 
+    href: "/super-admin/sales/orders", 
+    icon: Wallet, 
+    roles: ["SUPER_ADMIN"],
+    subItems: [
+      { label: "Orders", href: "/super-admin/sales/orders" },
+    ]
+  },
   { label: "Revenue", href: "/super-admin/revenue", icon: DollarSign, roles: ["SUPER_ADMIN"] },
   { label: "User Management", href: "/super-admin/users", icon: Users, roles: ["SUPER_ADMIN"] },
   { label: "Notifications", href: "/super-admin/notifications", icon: Megaphone, roles: ["SUPER_ADMIN"] },
@@ -56,6 +65,7 @@ const NAV_ITEMS: NavItem[] = [
   // ── Admin Navigation ─────────────────────────────────────────────────────
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, roles: ["ADMIN"] },
   { label: "Dashboard", href: "/hr", icon: LayoutDashboard, roles: ["HR"] },
+  { label: "Dashboard", href: "/branch-manager", icon: LayoutDashboard, roles: ["BRANCH_MANAGER"] },
   { 
     label: "Organization", 
     href: "/admin/organization", 
@@ -74,6 +84,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   { label: "Employees", href: "/admin/employees", icon: Users, roles: ["ADMIN"] },
   { label: "Employees", href: "/hr/employees", icon: Users, roles: ["HR"] },
+  { label: "Employees", href: "/branch-manager/employees", icon: Users, roles: ["BRANCH_MANAGER"] },
   { label: "Notice Board", href: "/admin/notices", icon: Megaphone, roles: ["ADMIN"] },
   { label: "Notice Board", href: "/hr/notices", icon: Megaphone, roles: ["HR"] },
   { label: "Messages", href: "/admin/messages", icon: MessageSquare, roles: ["ADMIN"] },
@@ -82,10 +93,13 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Projects & Tasks", href: "/hr/projects", icon: Briefcase, roles: ["HR"], feature: "Projects" },
   { label: "Attendance", href: "/admin/attendance", icon: Clock, roles: ["ADMIN"], feature: "Attendance" },
   { label: "Attendance", href: "/hr/attendance", icon: Clock, roles: ["HR"], feature: "Attendance" },
+  { label: "Attendance", href: "/branch-manager/attendance", icon: Clock, roles: ["BRANCH_MANAGER"], feature: "Attendance" },
   { label: "Leaves", href: "/admin/leaves", icon: Calendar, roles: ["ADMIN"], feature: "Leave Management" },
   { label: "Leaves", href: "/hr/leaves", icon: Calendar, roles: ["HR"], feature: "Leave Management" },
+  { label: "Leaves", href: "/branch-manager/leaves", icon: Calendar, roles: ["BRANCH_MANAGER"], feature: "Leave Management" },
   { label: "Reports", href: "/admin/reports", icon: BarChart3, roles: ["ADMIN"], feature: "Reports" },
   { label: "Reports", href: "/hr/reports", icon: BarChart3, roles: ["HR"], feature: "Reports" },
+  { label: "Reports", href: "/branch-manager/reports", icon: BarChart3, roles: ["BRANCH_MANAGER"], feature: "Reports" },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: ShieldCheck, roles: ["ADMIN"] },
   { label: "Billing", href: "/admin/billing", icon: CreditCard, roles: ["ADMIN"] },
   { label: "Payroll", href: "/admin/payroll", icon: DollarSign, roles: ["ADMIN"], feature: "Payroll" },

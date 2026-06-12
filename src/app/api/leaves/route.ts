@@ -6,6 +6,8 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import { logAudit } from "@/lib/utils";
 import { sendEmail, leaveApprovalTemplate } from "@/lib/email";
 import { format } from "date-fns";
+import { validate, schemas } from "@/lib/validate";
+import { getRoleScope } from "@/lib/scopes";
 
 export async function GET(req: NextRequest) {
   const session = await getAuth();
@@ -21,9 +23,19 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get("userId") || "";
 
   try {
+    const scope = getRoleScope(session.user);
     const where: any = { vendorId: session.user.vendorId };
-    if (session.user.role === "EMPLOYEE") where.userId = session.user.id;
-    else if (userId) where.userId = userId;
+    
+    if (scope.branchId) {
+      where.user = { branchId: scope.branchId };
+    }
+    
+    if (scope.id) {
+      where.userId = scope.id;
+    } else if (userId) {
+      where.userId = userId;
+    }
+    
     if (status) where.status = status;
 
     const leaves = await prisma.leave.findMany({
@@ -51,11 +63,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { type, startDate, endDate, reason } = await req.json();
-    if (!type || !startDate || !endDate || !reason) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
-    }
+    const body = await req.json();
+    const { error: validationError } = validate(schemas.leave, body);
+    if (validationError) return validationError;
 
+    const { type, startDate, endDate, reason } = body;
     const start = parseISO(startDate);
     const end = parseISO(endDate);
     if (start > end) return NextResponse.json({ error: "End date must be after start date" }, { status: 400 });
@@ -75,23 +87,31 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Find all Admin and HR users in the same vendor to notify them
-    const adminsAndHR = await prisma.user.findMany({
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { branchId: true }
+    });
+
+    // Find all Admin and HR users in the same vendor, and the specific Branch Manager
+    const notifyUsers = await prisma.user.findMany({
       where: {
         vendorId: session.user.vendorId,
-        role: { in: ["ADMIN", "HR"] },
         isActive: true,
+        OR: [
+          { role: { in: ["ADMIN", "HR"] } },
+          ...(currentUser?.branchId ? [{ role: "BRANCH_MANAGER" as any, branchId: currentUser.branchId }] : [])
+        ]
       },
       select: { id: true },
     });
 
     await Promise.all([
       logAudit(session.user.id, session.user.vendorId, "CREATE", "Leave", leave.id, `Leave request for ${type} (${totalDays} days)`),
-      // Create notification for each Admin/HR user
-      ...adminsAndHR.map((admin) =>
+      // Create notification for each Admin/HR/Branch Manager user
+      ...notifyUsers.map((userToNotify) =>
         prisma.notification.create({
           data: {
-            userId: admin.id,
+            userId: userToNotify.id,
             vendorId: session.user.vendorId,
             title: "New Leave Request",
             message: `${session.user.name} has applied for ${type} leave (${totalDays} day${totalDays > 1 ? "s" : ""}) — ${reason}`,
@@ -119,7 +139,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const session = await getAuth();
-  if (!session?.user || !["ADMIN", "HR"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "HR", "BRANCH_MANAGER"].includes(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -129,8 +149,24 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const { leaveId, action, rejectionNote } = await req.json();
-    if (!leaveId || !action) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    const body = await req.json();
+    const { error: validationError } = validate(schemas.leaveAction, body);
+    if (validationError) return validationError;
+
+    const { action, note: rejectionNote } = body;
+    const leaveId = body.leaveId as string;
+    if (!leaveId) return NextResponse.json({ error: "leaveId is required" }, { status: 400 });
+
+    const existingLeave = await prisma.leave.findUnique({
+      where: { id: leaveId, vendorId: session.user.vendorId },
+      include: { user: { select: { branchId: true } } }
+    });
+    if (!existingLeave) return NextResponse.json({ error: "Leave not found" }, { status: 404 });
+
+    const scope = getRoleScope(session.user);
+    if (scope.branchId && existingLeave.user.branchId !== scope.branchId) {
+      return NextResponse.json({ error: "Forbidden: Cannot approve leave outside your branch" }, { status: 403 });
+    }
 
     const status = action === "approve" ? "APPROVED" : "REJECTED";
     const leave = await prisma.leave.update({

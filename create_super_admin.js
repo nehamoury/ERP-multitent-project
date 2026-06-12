@@ -11,13 +11,21 @@ async function main() {
     return;
   }
 
+  let branch = await prisma.branch.findFirst({ where: { vendorId: vendor.id } });
+  if (!branch) {
+    branch = await prisma.branch.create({
+      data: { vendorId: vendor.id, name: "Head Office", code: "HQ" },
+    });
+  }
+
   const hashedPassword = await bcrypt.hash("super123", 12);
 
   const superAdmin = await prisma.user.upsert({
     where: { email: "super@attendiq.com" },
     update: {
       role: "SUPER_ADMIN",
-      password: hashedPassword
+      password: hashedPassword,
+      branchId: branch.id,
     },
     create: {
       vendorId: vendor.id,
@@ -26,6 +34,7 @@ async function main() {
       email: "super@attendiq.com",
       password: hashedPassword,
       role: "SUPER_ADMIN",
+      branchId: branch.id,
       isActive: true,
       joinDate: new Date(),
     },

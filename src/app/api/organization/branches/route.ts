@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { logAudit } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const session = await getAuth();
@@ -71,6 +72,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Branch name is required", errors: [] }, { status: 400 });
     }
 
+    const maxBranches = (session.user as any).subscription?.maxBranches || 1;
+    const planName = (session.user as any).subscription?.planName || "FREE";
+    const branchCount = await prisma.branch.count({ where: { vendorId: session.user.vendorId } });
+
+    if (branchCount >= maxBranches) {
+      return NextResponse.json({
+        success: false,
+        message: `Branch limit reached for your plan (${maxBranches}). Please upgrade.`,
+        code: "LIMIT_REACHED",
+        planName,
+        limit: maxBranches,
+        used: branchCount
+      }, { status: 403 });
+    }
+
     const exists = await prisma.branch.findFirst({
       where: { name: body.name, vendorId: session.user.vendorId }
     });
@@ -105,6 +121,8 @@ export async function POST(req: NextRequest) {
         description: `Created Branch: ${branch.name}`,
       }
     });
+
+    await logAudit(session.user.id, session.user.vendorId, "CREATE", "Branch", branch.id, `Created branch ${branch.name}`);
 
     return NextResponse.json({ success: true, message: "Branch created successfully", data: branch });
   } catch (error: any) {

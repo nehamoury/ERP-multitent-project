@@ -4,6 +4,7 @@ import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, parseISO, setHours, setMinutes } from "date-fns";
 import { logAudit } from "@/lib/utils";
+import { getRoleScope } from "@/lib/scopes";
 
 export async function GET(req: NextRequest) {
   const session = await getAuth();
@@ -18,11 +19,16 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "20");
 
   try {
+    const scope = getRoleScope(session.user);
     const where: any = { vendorId: session.user.vendorId };
 
+    if (scope.branchId) {
+      where.user = { branchId: scope.branchId };
+    }
+
     // Employees can only see their own records
-    if (session.user.role === "EMPLOYEE") {
-      where.userId = session.user.id;
+    if (scope.id) {
+      where.userId = scope.id;
     } else if (userId) {
       where.userId = userId;
     }
@@ -62,7 +68,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getAuth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["ADMIN", "HR"].includes(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!["ADMIN", "HR", "BRANCH_MANAGER"].includes(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
     const body = await req.json();

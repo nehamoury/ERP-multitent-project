@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { logAudit } from "@/lib/utils";
 import { syncDepartmentChatMembers, syncTeamChatMembers } from "@/lib/chat-sync";
+import { validate, schemas } from "@/lib/validate";
+import { getRoleScope } from "@/lib/scopes";
 
 export async function GET(req: NextRequest) {
   const session = await getAuth();
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "20");
 
   try {
-    const where: any = { vendorId: session.user.vendorId };
+    const where: any = { ...getRoleScope(session.user) };
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -74,10 +76,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    const { error: validationError } = validate(schemas.employee, body);
+    if (validationError) return validationError;
+
     const { name, email, password, role, branchId, departmentId, teamId, designationId, reportingManagerId, managerId, phone, joinDate, shiftStart, shiftEnd, fathersName, address, linkedInUrl, dateOfBirth, gender } = body;
 
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: "Name, email and password are required" }, { status: 400 });
+    if (!password || password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
     const exists = await prisma.user.findUnique({ where: { email } });
@@ -201,7 +206,7 @@ export async function PATCH(req: NextRequest) {
     if (rmId !== undefined) updatePayload.reportingManagerId = toNull(rmId);
 
     const user = await prisma.user.update({
-      where: { id },
+      where: { id_vendorId: { id, vendorId: session.user.vendorId } },
       data: updatePayload,
     });
 
@@ -227,11 +232,12 @@ export async function PATCH(req: NextRequest) {
 
     await logAudit(session.user.id, session.user.vendorId, "UPDATE", "User", id, `Updated employee ${user.name}`);
     return NextResponse.json({ success: true, user });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("PATCH Employee Error:", error);
-    if (error.code === "P2025") {
+    if ((error as any)?.code === "P2025") {
       return NextResponse.json({ error: "Employee not found" }, { status: 404 });
     }
-    return NextResponse.json({ error: "Failed to update employee: " + error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to update employee: " + message }, { status: 500 });
+    }
   }
-}

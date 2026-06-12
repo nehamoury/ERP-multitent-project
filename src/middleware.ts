@@ -14,7 +14,7 @@ export default withAuth(
     const role = token.role as string;
 
     // Role-based route guards
-    const getDashboard = (r: string) => r === "SUPER_ADMIN" ? "/super-admin" : r === "ADMIN" ? "/admin" : r === "HR" ? "/hr" : "/employee";
+    const getDashboard = (r: string) => r === "SUPER_ADMIN" ? "/super-admin" : r === "ADMIN" ? "/admin" : r === "HR" ? "/hr" : r === "BRANCH_MANAGER" ? "/branch-manager" : "/employee";
 
     if (pathname.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
       return NextResponse.redirect(new URL(getDashboard(role), req.url));
@@ -25,13 +25,15 @@ export default withAuth(
     if (pathname.startsWith("/hr") && !["ADMIN", "HR"].includes(role)) {
       return NextResponse.redirect(new URL(getDashboard(role), req.url));
     }
+    if (pathname.startsWith("/branch-manager") && role !== "BRANCH_MANAGER") {
+      return NextResponse.redirect(new URL(getDashboard(role), req.url));
+    }
     if (pathname.startsWith("/employee") && role === "SUPER_ADMIN") {
       return NextResponse.redirect(new URL(getDashboard(role), req.url));
     }
 
-    // Subscription check: Read-Only Mode for EXPIRED
-    const subStatus = (token as any).subscription?.status;
-    const vendorFeatures = (token as any).subscription?.features || [];
+    const subStatus = token.subscription?.status;
+    const vendorFeatures = token.subscription?.features ?? [];
     
     if (subStatus === "EXPIRED" || subStatus === "PAST_DUE" || subStatus === "CANCELLED") {
       // If it's an API route and not a GET request, block it, EXCEPT for billing/payment routes
@@ -82,6 +84,7 @@ export const config = {
     "/super-admin/:path*",
     "/admin/:path*",
     "/hr/:path*",
+    "/branch-manager/:path*",
     "/employee/:path*",
     "/api/employees/:path*",
     "/api/attendance/:path*",

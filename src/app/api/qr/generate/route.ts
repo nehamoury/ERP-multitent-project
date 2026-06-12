@@ -10,7 +10,8 @@ import crypto from "crypto";
 function signPayload(userId: string, employeeId: string): string {
   const ts = Date.now();
   const nonce = crypto.randomBytes(8).toString("hex");
-  const secret = process.env.NEXTAUTH_SECRET || "default-secret";
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) throw new Error("NEXTAUTH_SECRET not configured");
   const raw = `${userId}:${employeeId}:${nonce}:${ts}`;
   const sig = crypto.createHmac("sha256", secret).update(raw).digest("hex").slice(0, 16);
   return JSON.stringify({ userId, employeeId, nonce, ts, sig });

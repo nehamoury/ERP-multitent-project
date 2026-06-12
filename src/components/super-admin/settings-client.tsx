@@ -104,7 +104,7 @@ export default function SettingsClient() {
             <div className="grid gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Razorpay Key ID</label>
-                <input type="password" defaultValue="rzp_test_*********" className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" />
+                <input type="password" defaultValue="********" className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Razorpay Key Secret</label>

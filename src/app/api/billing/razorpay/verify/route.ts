@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
+import { validate, schemas } from "@/lib/validate";
 
 export async function POST(req: NextRequest) {
   const session = await getAuth();
@@ -10,14 +11,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const body = await req.json();
+    const { error: validationError } = validate(schemas.payment, body);
+    if (validationError) return validationError;
+
     const { 
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature,
-      notes // sent from client to retain metadata
-    } = await req.json();
+      notes
+    } = body;
 
-    const secret = process.env.RAZORPAY_KEY_SECRET || "mocksecret";
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!secret) {
+      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 });
+    }
 
     // Verify Signature
     const generated_signature = crypto
@@ -25,9 +34,7 @@ export async function POST(req: NextRequest) {
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
 
-    // We allow a mock bypass for development if the signature matches our bypass string, 
-    // or if the actual signature matches.
-    const isSignatureValid = generated_signature === razorpay_signature || razorpay_signature === "mock_signature_bypass";
+    const isSignatureValid = generated_signature === razorpay_signature;
 
     if (!isSignatureValid) {
       return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });

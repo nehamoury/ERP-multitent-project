@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { logAudit } from "@/lib/utils";
+import { getRoleScope } from "@/lib/scopes";
 
 export async function GET(req: NextRequest) {
     const session = await getAuth();
@@ -11,15 +12,20 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const status = searchParams.get("status") || "";
 
+        const scope = getRoleScope(session.user);
         const where: any = { vendorId: session.user.vendorId };
         if (status) where.status = status;
         
-        // Employees only see projects they manage or are members of
-        if (session.user.role === "EMPLOYEE") {
+        if (scope.branchId) {
             where.OR = [
-                { managerId: session.user.id },
-                { members: { some: { id: session.user.id } } },
-                { tasks: { some: { assigneeId: session.user.id } } }
+                { manager: { branchId: scope.branchId } },
+                { members: { some: { branchId: scope.branchId } } }
+            ];
+        } else if (scope.id) {
+            where.OR = [
+                { managerId: scope.id },
+                { members: { some: { id: scope.id } } },
+                { tasks: { some: { assigneeId: scope.id } } }
             ];
         }
 

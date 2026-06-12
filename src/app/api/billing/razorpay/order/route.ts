@@ -9,9 +9,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+  if (!keyId || !keySecret) {
+    return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 });
+  }
+
   const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || "rzp_test_mockkey",
-    key_secret: process.env.RAZORPAY_KEY_SECRET || "mocksecret",
+    key_id: keyId,
+    key_secret: keySecret,
   });
 
   try {
@@ -43,7 +50,7 @@ export async function POST(req: NextRequest) {
     const options = {
       amount: amountInPaise,
       currency: "INR",
-      receipt: `rcpt_${Date.now()}`, // Reduced length to fit Razorpay 40-char limit
+      receipt: `rcpt_${Date.now()}`,
       notes: {
         vendorId: vendor.id,
         planId: plan.id,
@@ -54,19 +61,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const keyId = process.env.RAZORPAY_KEY_ID || "rzp_test_mockkey";
-    
-    let order;
-    if (keyId === "rzp_test_mockkey") {
-      // Mock the order response for development without actual keys
-      order = {
-        id: `order_mock_${Date.now()}`,
-        amount: amountInPaise,
-        currency: "INR"
-      };
-    } else {
-      order = await razorpay.orders.create(options);
-    }
+    const order = await razorpay.orders.create(options);
 
     return NextResponse.json({
       orderId: order.id,

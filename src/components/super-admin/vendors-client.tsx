@@ -286,7 +286,7 @@ export default function VendorsClient() {
 
       {/* Table */}
       <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[300px]">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
               <tr>
@@ -456,7 +456,8 @@ export default function VendorsClient() {
               <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Plus size={18} className="text-primary" />Add New Client</h2>
               <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"><X size={18} /></button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto">
+            <form onSubmit={handleCreate} className="flex flex-col max-h-[85vh]">
+              <div className="p-6 space-y-5 overflow-y-auto">
               {/* Company Details */}
               <div>
                 <h3 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3">Company Details</h3>
@@ -526,7 +527,8 @@ export default function VendorsClient() {
                   </div>
                 </div>
               </div>
-              <div className="pt-2 flex justify-end gap-3 border-t border-border">
+              </div>
+              <div className="px-6 py-4 flex justify-end gap-3 border-t border-border bg-muted/30">
                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
                 <button type="submit" disabled={addMutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-70 flex items-center gap-2">
                   {addMutation.isPending ? <><RefreshCw size={14} className="animate-spin" /> Creating...</> : "Create Client"}
@@ -549,7 +551,8 @@ export default function VendorsClient() {
               </h2>
               <button onClick={() => setEditingVendor(null)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"><X size={18} /></button>
             </div>
-            <form onSubmit={handleEdit} className="p-6 space-y-5 max-h-[85vh] overflow-y-auto">
+            <form onSubmit={handleEdit} className="flex flex-col max-h-[85vh]">
+              <div className="p-6 space-y-5 overflow-y-auto">
               {/* Company Details */}
               <div>
                 <h3 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3">Company Details</h3>
@@ -614,7 +617,8 @@ export default function VendorsClient() {
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-3 border-t border-border">
+              </div>
+              <div className="px-6 py-4 flex justify-end gap-3 border-t border-border bg-muted/30">
                 <button type="button" onClick={() => setEditingVendor(null)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
                 <button type="submit" disabled={editMutation.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-70 flex items-center gap-2">
                   {editMutation.isPending ? <><RefreshCw size={14} className="animate-spin" /> Saving...</> : <><Save size={14} /> Save Changes</>}
@@ -664,7 +668,7 @@ export default function VendorsClient() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-card w-full max-w-2xl rounded-2xl shadow-2xl border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/30">
+              <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/30 shrink-0">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-primary" />
                   <h2 className="text-lg font-bold text-foreground">{viewingVendor.name}</h2>

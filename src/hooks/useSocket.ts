@@ -10,46 +10,67 @@ export const useSocket = () => {
   useEffect(() => {
     let mounted = true;
 
+    const setupListeners = (socketInstance: Socket) => {
+      if (socketInstance.connected) {
+        if (mounted) setIsConnected(true);
+      }
+
+      const onConnect = () => {
+        console.log(`[CLIENT AUDIT] Socket connected: ${socketInstance.id}`);
+        if (mounted) setIsConnected(true);
+      };
+      
+      const onDisconnect = () => {
+        if (mounted) setIsConnected(false);
+      };
+      
+      const onConnectError = (err: any) => {
+        if (mounted) setError(err.message);
+      };
+
+      socketInstance.on('connect', onConnect);
+      socketInstance.on('disconnect', onDisconnect);
+      socketInstance.on('connect_error', onConnectError);
+
+      return () => {
+        socketInstance.off('connect', onConnect);
+        socketInstance.off('disconnect', onDisconnect);
+        socketInstance.off('connect_error', onConnectError);
+      };
+    };
+
     const connectSocket = async () => {
       try {
         const response = await fetch('/api/chat/token');
-        if (!response.ok) {
-          throw new Error('Failed to fetch socket token');
-        }
+        if (!response.ok) throw new Error('Failed to fetch socket token');
         const data = await response.json();
         
         const socketInstance = initializeSocket(data.token);
-        
-        socketInstance.on('connect', () => {
-          console.log(`[CLIENT AUDIT] Socket connected: ${socketInstance.id}`);
-          if (mounted) setIsConnected(true);
-        });
-
-        socketInstance.on('disconnect', () => {
-          if (mounted) setIsConnected(false);
-        });
-
-        socketInstance.on('connect_error', (err) => {
-          if (mounted) setError(err.message);
-        });
-
         if (mounted) setSocket(socketInstance);
+        
+        return setupListeners(socketInstance);
       } catch (err: any) {
         if (mounted) setError(err.message);
       }
     };
 
+    let cleanupListeners: (() => void) | undefined;
+
     if (!getSocket()) {
-      connectSocket();
+      connectSocket().then(cleanup => {
+        cleanupListeners = cleanup;
+      });
     } else {
-      setSocket(getSocket());
-      setIsConnected(getSocket()?.connected || false);
+      const instance = getSocket();
+      if (instance) {
+        setSocket(instance);
+        cleanupListeners = setupListeners(instance);
+      }
     }
 
     return () => {
       mounted = false;
-      // Depending on the architecture, you might not want to disconnect on unmount 
-      // if the socket is used across the entire app. For a dedicated chat page, disconnecting is fine.
+      if (cleanupListeners) cleanupListeners();
     };
   }, []);
 

@@ -25,6 +25,7 @@ export const authOptions: NextAuthOptions = {
             id: true,
             vendorId: true,
             employeeId: true,
+            branchId: true,
             name: true,
             email: true,
             password: true,
@@ -46,14 +47,13 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) throw new Error("No account found with this email");
         if (!user.isActive) throw new Error("Account is deactivated. Contact HR.");
-        if ((user as any).vendor?.status === "SUSPENDED") {
+        if (user.vendor?.status === "SUSPENDED") {
           throw new Error("Your company account has been suspended.");
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) throw new Error("Incorrect password");
 
-        // Log login activity
         await prisma.activityLog.create({
           data: {
             userId: user.id,
@@ -76,19 +76,22 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          vendorId: (user as any).vendorId,
+          vendorId: user.vendorId,
           employeeId: user.employeeId,
+          branchId: user.branchId,
           name: user.name,
           email: user.email,
           role: user.role,
-          department: (user as any).department?.name ?? "",
-          designation: (user as any).designation?.name ?? "",
-          image: user.profileImage || undefined,
-          subscription: (user as any).vendor?.subscription ? {
-            status: (user as any).vendor.subscription.status,
-            planName: (user as any).vendor.subscription.plan.name,
-            features: (user as any).vendor.subscription.plan.features,
-            maxEmployees: (user as any).vendor.subscription.plan.maxEmployees
+          department: user.department?.name ?? "",
+          designation: user.designation?.name ?? "",
+          image: user.profileImage ?? undefined,
+          subscription: user.vendor?.subscription ? {
+            status: user.vendor.subscription.status,
+            planName: user.vendor.subscription.plan.name,
+            features: (user.vendor.subscription.plan.features as string[]),
+            maxEmployees: user.vendor.subscription.plan.maxEmployees,
+            maxBranches: user.vendor.subscription.plan.maxBranches,
+            maxStorageMB: user.vendor.subscription.plan.maxStorageMB,
           } : null
         };
       },
@@ -98,14 +101,15 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
-        token.vendorId = (user as any).vendorId;
-        token.employeeId = (user as any).employeeId;
-        token.role = (user as any).role;
-        token.department = (user as any).department;
-        token.designation = (user as any).designation;
-        token.subscription = (user as any).subscription;
-        token.originalRole = (user as any).role;
-        token.originalVendorId = (user as any).vendorId;
+        token.vendorId = user.vendorId;
+        token.employeeId = user.employeeId;
+        token.branchId = user.branchId;
+        token.role = user.role;
+        token.department = user.department;
+        token.designation = user.designation;
+        token.subscription = user.subscription;
+        token.originalRole = user.role;
+        token.originalVendorId = user.vendorId;
       }
       
       // Handle Impersonation
@@ -134,6 +138,7 @@ export const authOptions: NextAuthOptions = {
             token.id = targetUser.id;
             token.vendorId = targetUser.vendorId;
             token.employeeId = targetUser.employeeId;
+            token.branchId = targetUser.branchId;
             token.role = targetUser.role;
             token.department = targetUser.department?.name ?? "";
             token.designation = targetUser.designation?.name ?? "";
@@ -143,8 +148,10 @@ export const authOptions: NextAuthOptions = {
               token.subscription = {
                 status: targetUser.vendor.subscription.status,
                 planName: targetUser.vendor.subscription.plan.name,
-                features: targetUser.vendor.subscription.plan.features,
-                maxEmployees: targetUser.vendor.subscription.plan.maxEmployees
+                features: (targetUser.vendor.subscription.plan.features as string[]),
+                maxEmployees: targetUser.vendor.subscription.plan.maxEmployees,
+                maxBranches: targetUser.vendor.subscription.plan.maxBranches,
+                maxStorageMB: targetUser.vendor.subscription.plan.maxStorageMB
               };
             } else {
               token.subscription = null;
@@ -156,28 +163,31 @@ export const authOptions: NextAuthOptions = {
       // Revert Impersonation
       if (trigger === "update" && session?.revertImpersonation) {
         if (token.originalRole === "SUPER_ADMIN") {
-          token.id = (token.originalUserId as string) || token.id;
-          token.vendorId = (token.originalVendorId as string) || "";
+          token.id = token.originalUserId || token.id;
+          token.vendorId = token.originalVendorId ?? "";
+          token.branchId = null;
           token.role = "SUPER_ADMIN";
           token.isImpersonating = false;
           token.department = "";
           token.designation = "";
-          token.employeeId = null as any;
+          token.employeeId = "";
           token.subscription = null;
         }
       }
 
       if (trigger === "update" && token.vendorId && !session?.impersonateVendorId && !session?.revertImpersonation) {
         const vendor = await prisma.vendor.findUnique({
-          where: { id: token.vendorId as string },
+          where: { id: token.vendorId },
           include: { subscription: { include: { plan: true } } }
         });
         if (vendor?.subscription) {
           token.subscription = {
             status: vendor.subscription.status,
             planName: vendor.subscription.plan.name,
-            features: vendor.subscription.plan.features,
-            maxEmployees: vendor.subscription.plan.maxEmployees
+            features: (vendor.subscription.plan.features as string[]),
+            maxEmployees: vendor.subscription.plan.maxEmployees,
+            maxBranches: vendor.subscription.plan.maxBranches,
+            maxStorageMB: vendor.subscription.plan.maxStorageMB
           };
         }
       }
@@ -185,15 +195,16 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.vendorId = token.vendorId as string;
-        session.user.employeeId = token.employeeId as string;
-        session.user.role = token.role as string;
-        session.user.department = token.department as string;
-        session.user.designation = token.designation as string;
-        session.user.subscription = token.subscription as any;
-        (session.user as any).isImpersonating = token.isImpersonating as boolean;
-        (session.user as any).originalRole = token.originalRole as string;
+        session.user.id = token.id;
+        session.user.vendorId = token.vendorId;
+        session.user.employeeId = token.employeeId;
+        session.user.branchId = token.branchId;
+        session.user.role = token.role;
+        session.user.department = token.department ?? "";
+        session.user.designation = token.designation ?? "";
+        session.user.subscription = token.subscription;
+        session.user.isImpersonating = token.isImpersonating;
+        session.user.originalRole = token.originalRole;
       }
       return session;
     },

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuth } from "@/lib/auth";
+import { logAudit } from "@/lib/utils";
+import { getRoleScope } from "@/lib/scopes";
 
 export async function GET(req: NextRequest) {
   const session = await getAuth();
@@ -14,15 +16,25 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "20");
 
+  const scope = getRoleScope(session.user);
   const where: any = { vendorId: session.user.vendorId };
+  
+  if (scope.branchId) {
+    where.user = { branchId: scope.branchId };
+  }
+  
+  if (scope.id) {
+    where.userId = scope.id;
+  } else if (userId) {
+    where.userId = userId;
+  }
+  
   if (status) where.status = status;
-  if (userId) where.userId = userId;
   if (dateFrom || dateTo) {
     where.date = {};
     if (dateFrom) where.date.gte = new Date(dateFrom);
     if (dateTo) where.date.lte = new Date(dateTo);
   }
-  if (session.user.role === "EMPLOYEE") where.userId = session.user.id;
 
   const [reports, total] = await Promise.all([
     prisma.workReport.findMany({
@@ -66,14 +78,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await logAudit(session.user.id, session.user.vendorId, "CREATE", "WorkReport", report.id, `Submitted work report for ${reportDate.toISOString().split('T')[0]}`);
+
     return NextResponse.json({ report }, { status: 201 });
-  } catch (error: any) {
-    if (error.code === "P2002") {
+  } catch (error: unknown) {
+    if ((error as any)?.code === "P2002") {
       return NextResponse.json({ error: "Work report already exists for this date" }, { status: 409 });
     }
     return NextResponse.json({ error: "Failed to create work report" }, { status: 500 });
+    }
   }
-}
 
 export async function PATCH(req: NextRequest) {
   const session = await getAuth();
@@ -101,7 +115,18 @@ export async function PATCH(req: NextRequest) {
       if (hoursWorked !== undefined) updateData.hoursWorked = parseFloat(hoursWorked);
     }
 
-    if (["ADMIN", "HR"].includes(session.user.role)) {
+    const scope = getRoleScope(session.user);
+    if (scope.branchId) {
+      const reportWithUser = await prisma.workReport.findUnique({
+        where: { id },
+        include: { user: { select: { branchId: true } } }
+      });
+      if (reportWithUser?.user.branchId !== scope.branchId) {
+        return NextResponse.json({ error: "Forbidden: Not in your branch" }, { status: 403 });
+      }
+    }
+
+    if (["ADMIN", "HR", "BRANCH_MANAGER"].includes(session.user.role)) {
       if (status) {
         updateData.status = status;
         updateData.reviewedBy = session.user.id;
@@ -110,13 +135,15 @@ export async function PATCH(req: NextRequest) {
     }
 
     const updated = await prisma.workReport.update({
-      where: { id },
+      where: { id_vendorId: { id, vendorId: session.user.vendorId } },
       data: updateData,
       include: {
         user: { select: { id: true, name: true, employeeId: true } },
         reviewer: { select: { id: true, name: true } },
       },
     });
+
+    await logAudit(session.user.id, session.user.vendorId, "UPDATE", "WorkReport", updated.id, `Updated work report for ${updated.date.toISOString().split('T')[0]}`);
 
     return NextResponse.json({ report: updated });
   } catch {
@@ -145,7 +172,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Cannot delete approved/rejected report" }, { status: 403 });
     }
 
-    await prisma.workReport.delete({ where: { id } });
+    await prisma.workReport.delete({ where: { id_vendorId: { id, vendorId: session.user.vendorId } } });
+    await logAudit(session.user.id, session.user.vendorId, "DELETE", "WorkReport", id, `Deleted work report`);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Failed to delete work report" }, { status: 500 });

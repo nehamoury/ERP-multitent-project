@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         }
 
         const task = await prisma.task.update({
-            where: { id: params.id, vendorId: session.user.vendorId },
+            where: { id_vendorId: { id: params.id, vendorId: session.user.vendorId } },
             data: updateData,
             include: {
                 assignee: { select: { id: true, name: true, profileImage: true } },
@@ -73,7 +73,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     try {
         await prisma.task.delete({
-            where: { id: params.id, vendorId: session.user.vendorId }
+            where: { id_vendorId: { id: params.id, vendorId: session.user.vendorId } }
         });
 
         await logAudit(session.user.id, session.user.vendorId, "DELETE", "Task", params.id, "Deleted task");

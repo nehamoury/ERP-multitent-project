@@ -2,17 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { logAudit } from "@/lib/utils";
+import { getRoleScope } from "@/lib/scopes";
 
 export async function GET(req: NextRequest) {
     const session = await getAuth();
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     try {
+        const scope = getRoleScope(session.user);
         const where: any = { vendorId: session.user.vendorId };
 
-        // Employees only see tasks assigned to them
-        if (session.user.role === "EMPLOYEE") {
-            where.assigneeId = session.user.id;
+        if (scope.branchId) {
+            where.OR = [
+                { assignee: { branchId: scope.branchId } },
+                { project: { members: { some: { branchId: scope.branchId } } } },
+                { project: { manager: { branchId: scope.branchId } } }
+            ];
+        } else if (scope.id) {
+            where.assigneeId = scope.id;
         }
 
         const tasks = await prisma.task.findMany({
@@ -108,7 +115,7 @@ export async function PATCH(req: NextRequest) {
             }
             // Only allow status change for employees
             const task = await prisma.task.update({
-                where: { id },
+                where: { id_vendorId: { id, vendorId: session.user.vendorId } },
                 data: { status },
             });
             return NextResponse.json({ success: true, task });
@@ -124,7 +131,7 @@ export async function PATCH(req: NextRequest) {
         if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
 
         const task = await prisma.task.update({
-            where: { id },
+            where: { id_vendorId: { id, vendorId: session.user.vendorId } },
             data,
             include: {
                 assignee: { select: { id: true, name: true } },

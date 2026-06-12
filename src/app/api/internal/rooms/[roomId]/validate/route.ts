@@ -1,40 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 
-export async function POST(
+export async function GET(
   req: NextRequest,
   { params }: { params: { roomId: string } }
 ) {
+  const internalSecret = process.env.INTERNAL_API_SECRET;
+  const requestSecret = req.headers.get("x-internal-secret");
+
+  if (!internalSecret || requestSecret !== internalSecret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { roomId } = params;
+  const userId = req.headers.get("x-user-id");
+  const vendorId = req.headers.get("x-vendor-id");
+
+  if (!roomId || !userId || !vendorId) {
+    return NextResponse.json({ error: "Missing required headers" }, { status: 400 });
+  }
+
   try {
-    const { roomId } = params;
-    const { vendorId, userId, secret } = await req.json();
-
-    if (secret !== process.env.SOCKET_SECRET) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    if (!vendorId || !userId) {
-      return new NextResponse('Missing parameters', { status: 400 });
-    }
-
     const participant = await prisma.chatParticipant.findUnique({
       where: {
         roomId_userId_vendorId: {
           roomId,
           userId,
           vendorId,
-        }
-      }
+        },
+      },
     });
 
-    if (participant) {
-      return NextResponse.json({ valid: true });
-    } else {
-      return NextResponse.json({ valid: false });
+    if (!participant) {
+      return NextResponse.json({ valid: false }, { status: 403 });
     }
 
-  } catch (error) {
-    console.error('ROOM_VALIDATE_POST_ERROR', error);
-    return new NextResponse('Internal Error', { status: 500 });
+    return NextResponse.json({ valid: true });
+  } catch {
+    return NextResponse.json({ error: "Validation failed" }, { status: 500 });
   }
 }

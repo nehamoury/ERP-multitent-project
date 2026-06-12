@@ -11,9 +11,9 @@ export async function GET(req: NextRequest) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const secret = process.env.SOCKET_SECRET;
+    const secret = process.env.JWT_SECRET;
     if (!secret) {
-      console.error('Missing SOCKET_SECRET environment variable');
+      console.error('Missing JWT_SECRET environment variable');
       return new NextResponse('Server configuration error', { status: 500 });
     }
 

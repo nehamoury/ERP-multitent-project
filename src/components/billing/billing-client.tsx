@@ -97,44 +97,7 @@ export default function BillingClient() {
         return;
       }
 
-      if (orderData.keyId === "rzp_test_mockkey") {
-        // Development bypass: Simulate payment success directly
-        toast.success("Development Mode: Simulating successful payment...");
-        
-        const plan = plans.find(p => p.id === planId);
-        const baseAmount = isYearly ? plan?.priceYearly : plan?.priceMonthly;
-        const gstAmount = Math.round((baseAmount || 0) * 0.18);
-        
-        const verifyRes = await fetch("/api/billing/razorpay/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            razorpay_payment_id: "pay_mock_" + Date.now(),
-            razorpay_order_id: orderData.orderId,
-            razorpay_signature: "mock_signature_bypass",
-            notes: {
-              vendorId: session?.user?.vendorId,
-              planId,
-              planName: plan?.name,
-              isYearly: isYearly ? "true" : "false",
-              baseAmount: baseAmount?.toString(),
-              gstAmount: gstAmount.toString()
-            }
-          }),
-        });
-
-        if (verifyRes.ok) {
-          toast.success("Mock Subscription upgraded successfully!");
-          fetchBilling();
-          update(); 
-        } else {
-          toast.error("Mock Verification failed");
-        }
-        setUpgrading(null);
-        return;
-      }
-
-      // 2. Open Razorpay Checkout (Actual)
+      // 2. Open Razorpay Checkout
       const options = {
         key: orderData.keyId,
         amount: orderData.amount,

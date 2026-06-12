@@ -127,27 +127,6 @@ export default function EmployeeDashboardClient({
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
-              {!hasCheckedIn && (
-                <button onClick={handleCheckIn} disabled={!!loading}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white text-primary font-semibold rounded-xl hover:bg-blue-50 transition-all disabled:opacity-60 shadow-md">
-                  {loading === "in" ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
-                  Check In
-                </button>
-              )}
-              {hasCheckedIn && !hasCheckedOut && (
-                <button onClick={handleCheckOut} disabled={!!loading}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white/20 text-white font-semibold rounded-xl hover:bg-white/30 transition-all disabled:opacity-60 backdrop-blur-sm border border-white/20">
-                  {loading === "out" ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />}
-                  Check Out
-                </button>
-              )}
-              {hasCheckedOut && (
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-white/20 text-white rounded-xl text-sm font-medium border border-white/20">
-                  <Check size={16} /> Day Complete ✓
-                </div>
-              )}
-            </div>
           </div>
         </div>
         {record?.isLate && (

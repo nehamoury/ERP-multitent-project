@@ -9,9 +9,9 @@ export const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
   }
 
   try {
-    const secret = process.env.SOCKET_SECRET;
+    const secret = process.env.JWT_SECRET;
     if (!secret) {
-      throw new Error('Server misconfiguration: SOCKET_SECRET missing');
+      throw new Error('Server misconfiguration: JWT_SECRET missing');
     }
 
     // Verify token using the shared secret

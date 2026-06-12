@@ -15,6 +15,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   HR
+  BRANCH_MANAGER
   EMPLOYEE
 }
 
@@ -426,6 +427,7 @@ model Branch {
   teams       Team[]
 
   @@unique([name, vendorId])
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@map("branches")
 }
@@ -456,6 +458,7 @@ model Department {
   projects     Project[]
 
   @@unique([name, vendorId])
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@index([branchId])
   @@index([parentDepartmentId])
@@ -487,6 +490,7 @@ model Team {
 
   @@unique([name, departmentId])
   @@unique([code, vendorId])
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@index([branchId])
   @@index([departmentId])
@@ -511,6 +515,7 @@ model Designation {
   users      User[]
 
   @@unique([name, departmentId])
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@index([departmentId])
   @@map("designations")
@@ -543,6 +548,7 @@ model EmployeeTransfer {
   requestedBy User   @relation("RequestedTransfers", fields: [requestedById], references: [id])
   approvedBy  User?  @relation("ApprovedTransfers", fields: [approvedById], references: [id])
 
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@index([employeeId])
   @@index([status])
@@ -578,6 +584,7 @@ model PromotionHistory {
   requestedBy User   @relation("RequestedPromotions", fields: [requestedById], references: [id])
   approvedBy  User?  @relation("ApprovedPromotions", fields: [approvedById], references: [id])
 
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@index([employeeId])
   @@index([status])
@@ -597,6 +604,7 @@ model EmployeeHistory {
   vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   employee User   @relation("EmployeeHistoryRecords", fields: [employeeId], references: [id], onDelete: Cascade)
 
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@index([employeeId])
   @@index([createdAt])
@@ -859,11 +867,14 @@ model SubscriptionPlan {
   priceMonthly Float
   priceYearly  Float
   maxEmployees Int
+  maxBranches  Int      @default(1)
+  maxStorageMB Int      @default(1024)
   features     Json // Array of enabled feature keys
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  subscriptions VendorSubscription[]
+  subscriptions     VendorSubscription[]
+  checkoutSessions  CheckoutSession[]
 
   @@map("subscription_plans")
 }
@@ -877,6 +888,7 @@ model VendorSubscription {
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
   cancelAtPeriodEnd  Boolean            @default(false)
+  storageUsedMB      Float              @default(0)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -1033,6 +1045,7 @@ model ChatRoom {
 
   vendor        Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@map("chat_rooms")
 }
@@ -1086,6 +1099,7 @@ model Message {
   replies       Message[] @relation("MessageReplies")
   reads         MessageRead[]
 
+  @@unique([id, vendorId])
   @@index([vendorId])
   @@index([roomId])
   @@map("messages")
@@ -1107,4 +1121,29 @@ model MessageRead {
   @@unique([messageId, userId, vendorId])
   @@index([vendorId])
   @@map("message_reads")
+}
+
+// ─── SaaS Onboarding & Checkout ──────────────────────────────────────────────
+
+enum CheckoutStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+}
+
+model CheckoutSession {
+  id              String         @id @default(cuid())
+  vendorName      String
+  email           String
+  planId          String
+  amount          Float
+  razorpayOrderId String         @unique
+  status          CheckoutStatus @default(PENDING)
+  companyDetails  Json
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  @@map("checkout_sessions")
 }

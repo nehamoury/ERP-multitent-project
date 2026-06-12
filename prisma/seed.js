@@ -102,13 +102,44 @@ async function main() {
       planId: freePlan.id,
       status: "ACTIVE",
       currentPeriodStart: new Date(),
-      currentPeriodEnd: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // 1 year free
+      currentPeriodEnd: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
     },
   });
+
+  // Create Organization Structure
+  const branch = await prisma.branch.upsert({
+    where: { name_vendorId: { name: "Head Office", vendorId: vendor.id } },
+    update: {},
+    create: { vendorId: vendor.id, name: "Head Office", code: "HQ", location: "Mumbai" },
+  });
+
+  const deptRecords = {};
+  for (const deptName of DEPTS) {
+    const dept = await prisma.department.upsert({
+      where: { name_vendorId: { name: deptName, vendorId: vendor.id } },
+      update: {},
+      create: { vendorId: vendor.id, name: deptName, branchId: branch.id, code: deptName.slice(0, 3).toUpperCase() },
+    });
+    deptRecords[deptName] = dept;
+  }
+
+  const desigRecords = {};
+  for (const [deptName, titles] of Object.entries(DESIGNATIONS)) {
+    for (const title of titles) {
+      const desig = await prisma.designation.upsert({
+        where: { name_departmentId: { name: title, departmentId: deptRecords[deptName].id } },
+        update: {},
+        create: { vendorId: vendor.id, departmentId: deptRecords[deptName].id, name: title },
+      });
+      desigRecords[title] = desig;
+    }
+  }
 
   const hashedPassword = await bcrypt.hash("password123", 12);
 
   // Admin
+  const adminDept = deptRecords["Engineering"];
+  const adminDesig = desigRecords["Senior Engineer"];
   const admin = await prisma.user.upsert({
     where: { email: "admin@attendiq.com" },
     update: {},
@@ -119,14 +150,17 @@ async function main() {
       email: "admin@attendiq.com",
       password: hashedPassword,
       role: "ADMIN",
-      department: "Administration",
-      designation: "System Administrator",
+      departmentId: adminDept.id,
+      designationId: adminDesig.id,
+      branchId: branch.id,
       phone: "+91-9000000001",
       joinDate: new Date("2020-01-15"),
     },
   });
 
   // HR
+  const hrDept = deptRecords["HR"];
+  const hrDesig = desigRecords["HR Manager"];
   const hr = await prisma.user.upsert({
     where: { email: "hr@attendiq.com" },
     update: {},
@@ -137,8 +171,9 @@ async function main() {
       email: "hr@attendiq.com",
       password: hashedPassword,
       role: "HR",
-      department: "HR",
-      designation: "HR Manager",
+      departmentId: hrDept.id,
+      designationId: hrDesig.id,
+      branchId: branch.id,
       phone: "+91-9000000002",
       joinDate: new Date("2020-03-01"),
     },
@@ -147,16 +182,17 @@ async function main() {
   // Sample employees
   const employees = [];
   for (let i = 3; i <= 20; i++) {
-    const dept = randItem(DEPTS);
+    const deptName = randItem(DEPTS);
     const firstName = randItem(FIRST_NAMES);
     const lastName = randItem(LAST_NAMES);
     const name = `${firstName} ${lastName}`;
     const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@attendiq.com`;
     const employeeId = `EMP${pad(i)}`;
+    const desigTitle = randItem(DESIGNATIONS[deptName]);
 
     const emp = await prisma.user.upsert({
       where: { vendorId_employeeId: { vendorId: vendor.id, employeeId } },
-      update: { email, name, department: dept, designation: randItem(DESIGNATIONS[dept]) },
+      update: { email, name, departmentId: deptRecords[deptName].id, designationId: desigRecords[desigTitle].id },
       create: {
         vendorId: vendor.id,
         employeeId,
@@ -164,8 +200,9 @@ async function main() {
         email,
         password: hashedPassword,
         role: "EMPLOYEE",
-        department: dept,
-        designation: randItem(DESIGNATIONS[dept]),
+        departmentId: deptRecords[deptName].id,
+        designationId: desigRecords[desigTitle].id,
+        branchId: branch.id,
         phone: `+91-90${randInt(10000000, 99999999)}`,
         joinDate: new Date(2021 + Math.floor(i / 8), randInt(0, 11), randInt(1, 28)),
       },

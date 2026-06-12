@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuth } from "@/lib/auth";
+import { logAudit } from "@/lib/utils";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -97,14 +98,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    await logAudit(session.user.id, session.user.vendorId, "CREATE", "Payroll", payroll.id, `Generated payroll for ${payroll.user.name} for ${MONTHS[payroll.month - 1]} ${payroll.year}`);
+
     return NextResponse.json({ payroll }, { status: 201 });
-  } catch (error: any) {
-    if (error.code === "P2002") {
+  } catch (error: unknown) {
+    if ((error as any)?.code === "P2002") {
       return NextResponse.json({ error: "Payroll already exists for this employee in this period" }, { status: 409 });
     }
     return NextResponse.json({ error: "Failed to create payroll record" }, { status: 500 });
+    }
   }
-}
 
 export async function PATCH(req: NextRequest) {
   const session = await getAuth();
@@ -124,14 +127,14 @@ export async function PATCH(req: NextRequest) {
     if (paidAt !== undefined) updateData.paidAt = paidAt ? new Date(paidAt) : undefined;
 
     if (basicSalary !== undefined || allowances !== undefined || deductions !== undefined) {
-      const current = await prisma.payroll.findUnique({ where: { id } });
+      const current = await prisma.payroll.findUnique({ where: { id_vendorId: { id, vendorId: session.user.vendorId } } });
       if (current) {
         updateData.netAmount = (basicSalary ?? current.basicSalary) + (allowances ?? current.allowances) - (deductions ?? current.deductions);
       }
     }
 
     const payroll = await prisma.payroll.update({
-      where: { id, vendorId: session.user.vendorId },
+      where: { id_vendorId: { id, vendorId: session.user.vendorId } },
       data: updateData,
       include: { user: { select: { id: true, name: true, employeeId: true } } },
     });
@@ -162,6 +165,8 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    await logAudit(session.user.id, session.user.vendorId, "UPDATE", "Payroll", payroll.id, `Updated payroll for ${payroll.user.name} to status ${payroll.status}`);
+
     return NextResponse.json({ payroll });
   } catch {
     return NextResponse.json({ error: "Failed to update payroll" }, { status: 500 });
@@ -175,7 +180,8 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const { id } = await req.json();
-    await prisma.payroll.delete({ where: { id, vendorId: session.user.vendorId } });
+    await prisma.payroll.delete({ where: { id_vendorId: { id, vendorId: session.user.vendorId } } });
+    await logAudit(session.user.id, session.user.vendorId, "DELETE", "Payroll", id, `Deleted payroll record`);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Failed to delete payroll" }, { status: 500 });

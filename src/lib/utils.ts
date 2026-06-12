@@ -118,6 +118,11 @@ export function getMonthName(month: number): string {
   return MONTHS[month];
 }
 
+export function getErrorMessage(error: unknown, fallback = "An error occurred"): string {
+  if (error instanceof Error) return error.message;
+  return String(error) || fallback;
+}
+
 export async function logActivity(userId: string, vendorId: string, action: string, description: string, metadata?: object) {
   const { default: prisma } = await import("./prisma");
   return prisma.activityLog.create({

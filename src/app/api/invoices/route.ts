@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuth } from "@/lib/auth";
+import { logAudit } from "@/lib/utils";
 
 function generateInvoiceNumber(vendorId: string): string {
   const ts = Date.now().toString(36).toUpperCase();
@@ -68,6 +69,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await logAudit(session.user.id, session.user.vendorId, "CREATE", "Invoice", invoice.id, `Created invoice ${invoice.invoiceNumber} for ${clientName}`);
+
     return NextResponse.json({ invoice }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Failed to create invoice" }, { status: 500 });
@@ -95,16 +98,18 @@ export async function PATCH(req: NextRequest) {
     if (status === "PAID") updateData.paidAt = new Date();
 
     if (amount !== undefined || gstAmount !== undefined) {
-      const current = await prisma.clientInvoice.findUnique({ where: { id } });
+      const current = await prisma.clientInvoice.findUnique({ where: { id_vendorId: { id, vendorId: session.user.vendorId } } });
       if (current) {
         updateData.totalAmount = (amount ?? current.amount) + (gstAmount ?? current.gstAmount);
       }
     }
 
     const invoice = await prisma.clientInvoice.update({
-      where: { id, vendorId: session.user.vendorId },
+      where: { id_vendorId: { id, vendorId: session.user.vendorId } },
       data: updateData,
     });
+
+    await logAudit(session.user.id, session.user.vendorId, "UPDATE", "Invoice", invoice.id, `Updated invoice ${invoice.invoiceNumber} to status ${invoice.status}`);
 
     return NextResponse.json({ invoice });
   } catch {
@@ -119,7 +124,8 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const { id } = await req.json();
-    await prisma.clientInvoice.delete({ where: { id, vendorId: session.user.vendorId } });
+    await prisma.clientInvoice.delete({ where: { id_vendorId: { id, vendorId: session.user.vendorId } } });
+    await logAudit(session.user.id, session.user.vendorId, "DELETE", "Invoice", id, `Deleted client invoice`);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Failed to delete invoice" }, { status: 500 });
