@@ -8,6 +8,7 @@ import { getInitials, getAvatarColor, getRoleBadge, formatDate } from "@/lib/uti
 import { cn } from "@/lib/utils";
 import { Button, RoleBadge, Badge, EmptyState } from "@/components/ui/shared";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 
 interface Employee {
   id: string; employeeId: string; name: string; email: string;
@@ -27,6 +28,10 @@ interface Employee {
 const ROLES = ["EMPLOYEE", "HR", "ADMIN"];
 
 export default function EmployeesClient() {
+  const { data: session } = useSession();
+  const currentUserRole = (session?.user as any)?.role || "ADMIN";
+  const currentUserBranchId = (session?.user as any)?.branchId || "";
+
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -89,7 +94,7 @@ export default function EmployeesClient() {
 
   const [form, setForm] = useState({
     name: "", email: "", password: "", role: "EMPLOYEE",
-    branchId: "", departmentId: "", teamId: "", designationId: "", managerId: "", phone: "",
+    branchId: currentUserBranchId || "", departmentId: "", teamId: "", designationId: "", managerId: "", phone: "",
     joinDate: new Date().toISOString().split("T")[0],
     shiftStart: "09:00", shiftEnd: "18:00",
     fathersName: "", address: "", linkedInUrl: "", dateOfBirth: "", gender: "",
@@ -120,7 +125,7 @@ export default function EmployeesClient() {
       setShowModal(false);
       setForm({
         name: "", email: "", password: "", role: "EMPLOYEE",
-        branchId: "", departmentId: "", teamId: "", designationId: "", managerId: "", phone: "",
+        branchId: currentUserBranchId || "", departmentId: "", teamId: "", designationId: "", managerId: "", phone: "",
         joinDate: new Date().toISOString().split("T")[0],
         shiftStart: "09:00", shiftEnd: "18:00",
         fathersName: "", address: "", linkedInUrl: "", dateOfBirth: "", gender: "",
@@ -423,15 +428,26 @@ export default function EmployeesClient() {
                 ))}
                 <div>
                   <label className={labelCls}>Role</label>
-                  <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className={inputCls}>
-                    {ROLES.map(r => <option key={r}>{r}</option>)}
+                  <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className={inputCls} disabled={currentUserRole === "BRANCH_MANAGER"}>
+                    {currentUserRole === "BRANCH_MANAGER" ? (
+                      <option value="EMPLOYEE">EMPLOYEE</option>
+                    ) : (
+                      ROLES.map(r => <option key={r}>{r}</option>)
+                    )}
                   </select>
                 </div>
                 <div>
                   <label className={labelCls}>Branch</label>
-                  <select value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))} className={inputCls}>
+                  <select 
+                    value={form.branchId} 
+                    onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))} 
+                    className={inputCls}
+                    disabled={currentUserRole === "BRANCH_MANAGER"}
+                  >
                     <option value="">Select Branch</option>
-                    {meta.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {meta.branches
+                      .filter(b => currentUserRole !== "BRANCH_MANAGER" || b.id === currentUserBranchId)
+                      .map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -526,15 +542,26 @@ export default function EmployeesClient() {
                 ))}
                 <div>
                   <label className={labelCls}>Role</label>
-                  <select value={editForm.role || "EMPLOYEE"} onChange={e => setEditForm((p: any) => ({ ...p, role: e.target.value }))} className={inputCls}>
-                    {ROLES.map(r => <option key={r}>{r}</option>)}
+                  <select value={editForm.role || "EMPLOYEE"} onChange={e => setEditForm((p: any) => ({ ...p, role: e.target.value }))} className={inputCls} disabled={currentUserRole === "BRANCH_MANAGER"}>
+                    {currentUserRole === "BRANCH_MANAGER" ? (
+                      <option value="EMPLOYEE">EMPLOYEE</option>
+                    ) : (
+                      ROLES.map(r => <option key={r}>{r}</option>)
+                    )}
                   </select>
                 </div>
                 <div>
                   <label className={labelCls}>Branch</label>
-                  <select value={editForm.branchId || ""} onChange={e => setEditForm((p: any) => ({ ...p, branchId: e.target.value }))} className={inputCls}>
+                  <select 
+                    value={editForm.branchId || ""} 
+                    onChange={e => setEditForm((p: any) => ({ ...p, branchId: e.target.value }))} 
+                    className={inputCls}
+                    disabled={currentUserRole === "BRANCH_MANAGER"}
+                  >
                     <option value="">Select Branch</option>
-                    {meta.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {meta.branches
+                      .filter(b => currentUserRole !== "BRANCH_MANAGER" || b.id === currentUserBranchId)
+                      .map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>

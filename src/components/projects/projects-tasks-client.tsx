@@ -35,6 +35,8 @@ interface Project {
         priority: string;
         description: string | null;
         dueDate: string | null;
+        progress: number;
+        attachments?: { name: string; url: string }[] | null;
         assignee: { id: string; name: string } | null;
     }[];
 }
@@ -68,6 +70,15 @@ export default function ProjectsTasksClient({ userRole, userId }: Props) {
     const [statusFilter, setStatusFilter] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+    // New states for task update panel
+    const [selectedTask, setSelectedTask] = useState<any | null>(null);
+    const [updateStatus, setUpdateStatus] = useState("");
+    const [updateProgress, setUpdateProgress] = useState(0);
+    const [updateComment, setUpdateComment] = useState("");
+    const [attachmentName, setAttachmentName] = useState("");
+    const [attachmentUrl, setAttachmentUrl] = useState("");
+    const [updatingTask, setUpdatingTask] = useState(false);
 
     const isAdminOrHR = ["ADMIN", "HR"].includes(userRole);
 
@@ -153,9 +164,79 @@ export default function ProjectsTasksClient({ userRole, userId }: Props) {
                 await fetchProjects();
                 const updatedProjects = await fetch("/api/projects").then(r => r.json());
                 const updated = (updatedProjects || []).find((p: Project) => p.id === selectedProject?.id);
-                if (updated) setSelectedProject(updated);
+                if (updated) {
+                    setSelectedProject(updated);
+                    const task = updated.tasks?.find((t: any) => t.id === taskId);
+                    if (task && selectedTask?.id === taskId) {
+                        setSelectedTask(task);
+                    }
+                }
             }
         } catch { showToast("Failed to update task", "error"); }
+    };
+
+    const handleUpdateTask = async () => {
+        if (!selectedTask) return;
+        setUpdatingTask(true);
+        try {
+            const payload: any = {
+                id: selectedTask.id,
+                status: updateStatus,
+                progress: updateProgress,
+            };
+            if (updateComment.trim()) payload.comment = updateComment;
+            
+            const res = await fetch("/api/tasks", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+                showToast("Task progress updated!");
+                setUpdateComment("");
+                await fetchProjects();
+                const updatedProjects = await fetch("/api/projects").then(r => r.json());
+                const updated = (updatedProjects || []).find((p: Project) => p.id === selectedProject?.id);
+                if (updated) {
+                    setSelectedProject(updated);
+                    const task = updated.tasks?.find((t: any) => t.id === selectedTask.id);
+                    if (task) setSelectedTask(task);
+                }
+            } else {
+                const data = await res.json();
+                showToast(data.error || "Failed to update task", "error");
+            }
+        } catch { showToast("Failed to update task", "error"); }
+        finally { setUpdatingTask(false); }
+    };
+
+    const handleAddAttachment = async () => {
+        if (!selectedTask || !attachmentName.trim() || !attachmentUrl.trim()) return;
+        setUpdatingTask(true);
+        try {
+            const res = await fetch("/api/tasks", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: selectedTask.id,
+                    attachment: { name: attachmentName, url: attachmentUrl }
+                }),
+            });
+            if (res.ok) {
+                showToast("Attachment shared!");
+                setAttachmentName("");
+                setAttachmentUrl("");
+                await fetchProjects();
+                const updatedProjects = await fetch("/api/projects").then(r => r.json());
+                const updated = (updatedProjects || []).find((p: Project) => p.id === selectedProject?.id);
+                if (updated) {
+                    setSelectedProject(updated);
+                    const task = updated.tasks?.find((t: any) => t.id === selectedTask.id);
+                    if (task) setSelectedTask(task);
+                }
+            }
+        } catch { showToast("Failed to share attachment", "error"); }
+        finally { setUpdatingTask(false); }
     };
 
     const filteredProjects = projects.filter(p => {
@@ -307,9 +388,10 @@ export default function ProjectsTasksClient({ userRole, userId }: Props) {
                                     <User size={12} />
                                     {project.manager?.name || "Unassigned"}
                                 </div>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-primary transition-colors">
-                                    <span>{total} tasks</span>
-                                    <ChevronRight size={14} />
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground group-hover:text-primary transition-colors">
+                                    <span className="flex items-center gap-1"><Users size={12} /> {getProjectTeam(project).length}</span>
+                                    <span className="flex items-center gap-1"><ListTodo size={12} /> {total}</span>
+                                    <ChevronRight size={14} className="ml-1" />
                                 </div>
                             </div>
                         </div>
@@ -320,7 +402,7 @@ export default function ProjectsTasksClient({ userRole, userId }: Props) {
             {/* Project Detail Modal */}
             {selectedProject && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-card w-full max-w-2xl rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in zoom-in-95">
+                    <div className="bg-card w-full max-w-5xl rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in zoom-in-95">
                         {/* Modal Header */}
                         <div className="p-5 border-b border-border flex-shrink-0">
                             <div className="flex items-start justify-between mb-3">
@@ -447,90 +529,233 @@ export default function ProjectsTasksClient({ userRole, userId }: Props) {
 
                             {/* TASKS TAB */}
                             {activeTab === "tasks" && (
-                                <>
-                                    {/* Add Task Button */}
-                                    <div className="flex justify-end">
-                                        <Button onClick={() => setShowAddTask(true)} className="text-xs">
-                                            <Plus size={14} className="mr-1" /> Add My Task
-                                        </Button>
-                                    </div>
+                                <div className="flex gap-6 h-[600px] overflow-hidden">
+                                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                                        {/* Add Task Button */}
+                                        <div className="flex justify-end">
+                                            {(isAdminOrHR || userRole === "MANAGER") && (
+                                                <Button onClick={() => setShowAddTask(true)} className="text-xs">
+                                                    <Plus size={14} className="mr-1" /> Add Task
+                                                </Button>
+                                            )}
+                                        </div>
 
-                                    {/* Tasks grouped by status */}
-                                    {TASK_STATUSES.map(status => {
-                                        const tasksInStatus = selectedProject.tasks?.filter(t => t.status === status) || [];
-                                        if (tasksInStatus.length === 0) return null;
-                                        const config = STATUS_CONFIG[status];
-                                        const Icon = config.icon;
+                                        {/* Tasks grouped by status */}
+                                        {TASK_STATUSES.map(status => {
+                                            const tasksInStatus = selectedProject.tasks?.filter(t => t.status === status) || [];
+                                            if (tasksInStatus.length === 0) return null;
+                                            const config = STATUS_CONFIG[status];
+                                            const Icon = config.icon;
 
-                                        return (
-                                            <div key={status}>
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <Icon size={14} className={config.color} />
-                                                    <span className={cn("text-xs font-bold", config.color)}>{config.label} ({tasksInStatus.length})</span>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    {tasksInStatus.map(task => (
-                                                        <div key={task.id} className="bg-muted/30 border border-border rounded-xl p-3">
-                                                            <div className="flex items-start justify-between mb-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className={cn("w-2 h-2 rounded-full flex-shrink-0", {
-                                                                        "bg-muted-foreground": task.status === "TODO",
-                                                                        "bg-blue-500": task.status === "IN_PROGRESS",
-                                                                        "bg-amber-500": task.status === "REVIEW",
-                                                                        "bg-emerald-500": task.status === "COMPLETED",
-                                                                        "bg-red-500": task.status === "BLOCKED",
-                                                                    })} />
-                                                                    <span className="font-medium text-sm">{task.title}</span>
+                                            return (
+                                                <div key={status}>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <Icon size={14} className={config.color} />
+                                                        <span className={cn("text-xs font-bold", config.color)}>{config.label} ({tasksInStatus.length})</span>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        {tasksInStatus.map(task => (
+                                                            <div 
+                                                                key={task.id} 
+                                                                onClick={() => {
+                                                                    setSelectedTask(task);
+                                                                    setUpdateStatus(task.status);
+                                                                    setUpdateProgress(task.progress || 0);
+                                                                    setUpdateComment("");
+                                                                }}
+                                                                className={cn(
+                                                                    "bg-card border rounded-xl p-4 cursor-pointer transition-all hover:shadow-md",
+                                                                    selectedTask?.id === task.id ? "border-primary ring-1 ring-primary/30" : "border-border hover:border-primary/50"
+                                                                )}
+                                                            >
+                                                                <div className="flex items-start justify-between mb-3">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className={cn("w-2 h-2 rounded-full flex-shrink-0", {
+                                                                            "bg-muted-foreground": task.status === "TODO",
+                                                                            "bg-blue-500": task.status === "IN_PROGRESS",
+                                                                            "bg-amber-500": task.status === "REVIEW",
+                                                                            "bg-emerald-500": task.status === "COMPLETED",
+                                                                            "bg-red-500": task.status === "BLOCKED",
+                                                                        })} />
+                                                                        <span className="font-bold text-base">{task.title}</span>
+                                                                        <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">Client</span>
+                                                                    </div>
+                                                                    <Badge label={task.priority} />
                                                                 </div>
-                                                                <Badge label={task.priority} />
-                                                            </div>
-                                                            {task.description && (
-                                                                <p className="text-xs text-muted-foreground mb-2 line-clamp-1 pl-4">{task.description}</p>
-                                                            )}
-                                                            <div className="flex items-center justify-between pl-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    {task.assignee ? (
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <div className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-[8px] font-bold", getAvatarColor(task.assignee.name))}>
-                                                                                {getInitials(task.assignee.name)}
+                                                                
+                                                                {task.description && (
+                                                                    <p className="text-xs text-muted-foreground mb-4 line-clamp-2 pl-5">{task.description}</p>
+                                                                )}
+                                                                
+                                                                <div className="pl-5 mb-4">
+                                                                    <div className="flex justify-between text-xs mb-1.5 font-medium">
+                                                                        <span className="text-muted-foreground">Progress</span>
+                                                                        <span className="text-primary">{task.progress || 0}%</span>
+                                                                    </div>
+                                                                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                                                                        <div 
+                                                                            className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                                                                            style={{ width: `${task.progress || 0}%` }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-center justify-between pl-5">
+                                                                    <div className="flex items-center gap-2">
+                                                                        {task.assignee ? (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold", getAvatarColor(task.assignee.name))}>
+                                                                                    {getInitials(task.assignee.name)}
+                                                                                </div>
+                                                                                <span className="text-sm font-medium">{task.assignee.name}</span>
                                                                             </div>
-                                                                            <span className="text-xs text-muted-foreground">{task.assignee.name}</span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-xs text-muted-foreground">Unassigned</span>
-                                                                    )}
+                                                                        ) : (
+                                                                            <span className="text-sm text-muted-foreground">Unassigned</span>
+                                                                        )}
+                                                                    </div>
                                                                     {task.dueDate && (
-                                                                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                                                            <Calendar size={10} /> {formatDate(task.dueDate)}
+                                                                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                                                            <Calendar size={12} /> {formatDate(task.dueDate)}
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                {/* Status change - only for own tasks or admin */}
-                                                                {(task.assignee?.id === userId || isAdminOrHR) && (
-                                                                    <select
-                                                                        value={task.status}
-                                                                        onChange={(e) => updateTaskStatus(task.id, e.target.value)}
-                                                                        className="text-[10px] bg-muted border border-border rounded-md px-1.5 py-0.5 focus:ring-1 focus:ring-primary/50"
-                                                                    >
-                                                                        {TASK_STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
-                                                                    </select>
-                                                                )}
                                                             </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {(!selectedProject.tasks || selectedProject.tasks.length === 0) && (
+                                            <div className="text-center py-20 text-muted-foreground">
+                                                <ListTodo size={40} className="mx-auto mb-3 opacity-40" />
+                                                <p className="text-base font-medium">No tasks yet</p>
+                                                <p className="text-sm mt-1">Add your first task to get started</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Right Update Panel */}
+                                    <div className="w-80 border-l border-border pl-6 flex flex-col h-full overflow-y-auto pr-2 pb-4 sticky top-0">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="font-bold">Update Task</h3>
+                                            <button onClick={() => setSelectedTask(null)} className="p-1 hover:bg-muted rounded-lg"><X size={16}/></button>
+                                        </div>
+                                        
+                                        {selectedTask ? (
+                                            <div className="space-y-6">
+                                                <div className="bg-card border border-border p-4 rounded-xl space-y-4">
+                                                    <h4 className="font-bold text-sm">{selectedTask.title}</h4>
+                                                    
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-bold text-muted-foreground">Status</label>
+                                                        <select
+                                                            value={updateStatus}
+                                                            onChange={e => setUpdateStatus(e.target.value)}
+                                                            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/50"
+                                                            disabled={!(selectedTask.assignee?.id === userId || isAdminOrHR)}
+                                                        >
+                                                            {TASK_STATUSES.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex justify-between items-center">
+                                                            <label className="text-xs font-bold text-muted-foreground">Progress</label>
+                                                            <span className="text-xs font-bold text-primary">{updateProgress}%</span>
                                                         </div>
-                                                    ))}
+                                                        <input
+                                                            type="range"
+                                                            min={0}
+                                                            max={100}
+                                                            value={updateProgress}
+                                                            onChange={e => setUpdateProgress(Number(e.target.value))}
+                                                            className="w-full accent-blue-600 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                                                            disabled={!(selectedTask.assignee?.id === userId || isAdminOrHR)}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs font-bold text-muted-foreground">Update Comment</label>
+                                                        <textarea
+                                                            rows={3}
+                                                            value={updateComment}
+                                                            onChange={e => setUpdateComment(e.target.value)}
+                                                            placeholder="What did you work on? Any blockers?"
+                                                            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary/50"
+                                                            disabled={!(selectedTask.assignee?.id === userId || isAdminOrHR)}
+                                                        />
+                                                    </div>
+
+                                                    <Button 
+                                                        className="w-full bg-blue-600 hover:bg-blue-700" 
+                                                        onClick={handleUpdateTask}
+                                                        disabled={updatingTask || !(selectedTask.assignee?.id === userId || isAdminOrHR) || (selectedTask.progress === updateProgress && selectedTask.status === updateStatus && !updateComment.trim())}
+                                                    >
+                                                        {updatingTask ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                                                        Submit Update
+                                                    </Button>
+                                                </div>
+
+                                                <div className="bg-card border border-border p-4 rounded-xl space-y-4">
+                                                    <h4 className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Shared Attachments</h4>
+                                                    
+                                                    {selectedTask.attachments && selectedTask.attachments.length > 0 ? (
+                                                        <div className="space-y-2">
+                                                            {selectedTask.attachments.map((file: any, i: number) => (
+                                                                <a 
+                                                                    key={i} 
+                                                                    href={file.url} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer"
+                                                                    className="block p-2 text-sm text-blue-500 hover:underline bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-900 line-clamp-1"
+                                                                >
+                                                                    {file.name}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-muted-foreground italic">No files attached to this task yet.</p>
+                                                    )}
+
+                                                    {(selectedTask.assignee?.id === userId || isAdminOrHR) && (
+                                                        <div className="space-y-2 pt-2 border-t border-border mt-2">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="File name (e.g. Contract.pdf)"
+                                                                value={attachmentName}
+                                                                onChange={e => setAttachmentName(e.target.value)}
+                                                                className="w-full px-3 py-1.5 bg-muted border border-border rounded-md text-sm"
+                                                            />
+                                                            <input
+                                                                type="url"
+                                                                placeholder="File URL (e.g. https://...)"
+                                                                value={attachmentUrl}
+                                                                onChange={e => setAttachmentUrl(e.target.value)}
+                                                                className="w-full px-3 py-1.5 bg-muted border border-border rounded-md text-sm"
+                                                            />
+                                                            <Button 
+                                                                variant="outline" 
+                                                                className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                                onClick={handleAddAttachment}
+                                                                disabled={updatingTask || !attachmentName.trim() || !attachmentUrl.trim()}
+                                                            >
+                                                                {updatingTask ? <Loader2 size={16} className="animate-spin mr-2" /> : null}
+                                                                Share Attachment
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-
-                                    {(!selectedProject.tasks || selectedProject.tasks.length === 0) && (
-                                        <div className="text-center py-10 text-muted-foreground">
-                                            <ListTodo size={32} className="mx-auto mb-2 opacity-40" />
-                                            <p className="text-sm font-medium">No tasks yet</p>
-                                            <p className="text-xs mt-1">Add your first task to get started</p>
-                                        </div>
-                                    )}
-                                </>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground opacity-60">
+                                                <ListTodo size={48} className="mb-4" />
+                                                <p className="text-sm font-medium">Select a task</p>
+                                                <p className="text-xs text-center px-4 mt-1">Click on a task from the list to view or update its details.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             )}
 
                             {/* TEAM TAB */}
@@ -539,6 +764,11 @@ export default function ProjectsTasksClient({ userRole, userId }: Props) {
                                 if (selectedProject.manager) {
                                     members.set(selectedProject.manager.id, { name: selectedProject.manager.name, role: "LEAD" });
                                 }
+                                selectedProject.members?.forEach(m => {
+                                    if (!members.has(m.id)) {
+                                        members.set(m.id, { name: m.name, role: "MEMBER" });
+                                    }
+                                });
                                 selectedProject.tasks?.forEach(t => {
                                     if (t.assignee && !members.has(t.assignee.id)) {
                                         members.set(t.assignee.id, { name: t.assignee.name, role: "MEMBER" });

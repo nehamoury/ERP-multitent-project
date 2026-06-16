@@ -19,6 +19,20 @@ enum Role {
   EMPLOYEE
 }
 
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+  CHEQUE
+  ONLINE
+}
+
+enum PaymentSource {
+  ONLINE
+  MANUAL
+}
+
+
 enum AttendanceStatus {
   PRESENT
   ABSENT
@@ -140,6 +154,8 @@ model Vendor {
   paymentTransactions PaymentTransaction[]
   usageLogs           UsageLog[]
   invoices            BillingInvoice[]
+  paymentRecords      PaymentRecord[]
+  billingAuditLogs    BillingAuditLog[]
   clientInvoices      ClientInvoice[]
   payrolls            Payroll[]
   workReports         WorkReport[]
@@ -706,6 +722,8 @@ model Task {
   assigneeId  String?
   dueDate     DateTime?
   progress    Int          @default(0)
+  attachments Json?
+
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -946,15 +964,50 @@ model BillingInvoice {
   amount        Float
   gstAmount     Float
   totalAmount   Float
-  status        String   @default("PENDING") // PENDING, PAID, FAILED
+  status        String   @default("PENDING") // PENDING, PAID, FAILED, CANCELLED
   paymentId     String?
   invoiceDate   DateTime @default(now())
   pdfUrl        String?
 
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  payments      PaymentRecord[]
 
   @@index([vendorId])
   @@map("billing_invoices")
+}
+
+model PaymentRecord {
+  id              String        @id @default(cuid())
+  invoiceId       String
+  vendorId        String
+  amount          Float
+  paymentMethod   PaymentMethod
+  paymentSource   PaymentSource @default(MANUAL)
+  referenceNo     String?
+  receivedBy      String?
+  notes           String?       @db.Text
+  createdAt       DateTime      @default(now())
+
+  invoice         BillingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  vendor          Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([invoiceId])
+  @@map("payment_records")
+}
+
+model BillingAuditLog {
+  id          String   @id @default(cuid())
+  vendorId    String
+  action      String
+  description String   @db.Text
+  performedBy String
+  createdAt   DateTime @default(now())
+
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("billing_audit_logs")
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────

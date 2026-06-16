@@ -20,6 +20,7 @@ export default function MyAttendanceClient({ userId, userName, todayRecord: init
   const [loading, setLoading] = useState<"in" | "out" | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -33,6 +34,7 @@ export default function MyAttendanceClient({ userId, userName, todayRecord: init
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setRecord(data.record);
+      setRefreshKey(k => k + 1);
       showToast(`Checked in at ${formatTime(new Date())}`);
       router.refresh();
     } catch (err: any) { showToast(err.message, "error"); }
@@ -46,6 +48,7 @@ export default function MyAttendanceClient({ userId, userName, todayRecord: init
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setRecord((p: any) => ({ ...p, checkOut: new Date().toISOString(), workingHours: data.workingHours }));
+      setRefreshKey(k => k + 1);
       showToast(`Checked out successfully!`);
       router.refresh();
     } catch (err: any) { showToast(err.message, "error"); }
@@ -93,12 +96,14 @@ export default function MyAttendanceClient({ userId, userName, todayRecord: init
         </div>
         
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button 
-            onClick={() => setShowQrModal(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-muted text-foreground font-semibold rounded-xl hover:bg-muted/80 transition-colors border border-border"
-          >
-            <QrCode size={18} /> Scan QR
-          </button>
+          {!hasCheckedIn && (
+            <button 
+              onClick={() => setShowQrModal(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-muted text-foreground font-semibold rounded-xl hover:bg-muted/80 transition-colors border border-border"
+            >
+              <QrCode size={18} /> Scan QR
+            </button>
+          )}
 
           {!hasCheckedIn && (
             <button onClick={handleCheckIn} disabled={!!loading}
@@ -118,7 +123,7 @@ export default function MyAttendanceClient({ userId, userName, todayRecord: init
       </div>
 
       <div className="pt-2 mt-8">
-        <AttendanceClient userId={userId} />
+        <AttendanceClient userId={userId} refreshTrigger={refreshKey} />
       </div>
 
       {/* Simple QR Scanner Modal */}
@@ -132,11 +137,18 @@ export default function MyAttendanceClient({ userId, userName, todayRecord: init
               </button>
             </div>
             <div className="p-4">
-              <EmployeeScanner onSuccess={() => {
-                setTimeout(() => {
-                  setShowQrModal(false);
-                  router.refresh();
-                }, 2500);
+              <EmployeeScanner onSuccess={(data) => {
+                setShowQrModal(false);
+                if (data && data.action === "checkin") {
+                  setRecord(data.record);
+                  setRefreshKey(k => k + 1);
+                  showToast(`Checked in via QR at ${formatTime(new Date())}`);
+                } else if (data && data.action === "checkout") {
+                  setRecord((p: any) => ({ ...p, checkOut: new Date().toISOString(), workingHours: data.workingHours }));
+                  setRefreshKey(k => k + 1);
+                  showToast(`Checked out via QR successfully!`);
+                }
+                router.refresh(); // Refresh background data silently
               }} />
             </div>
           </div>

@@ -38,8 +38,14 @@ export async function GET(req: NextRequest) {
                     where: session.user.role === "EMPLOYEE" ? { assigneeId: session.user.id } : undefined,
                     select: {
                         id: true,
+                        title: true,
+                        description: true,
                         status: true,
+                        priority: true,
+                        dueDate: true,
                         progress: true,
+                        // @ts-ignore
+                        attachments: true,
                         assignee: { select: { id: true, name: true, profileImage: true } }
                     }
                 }

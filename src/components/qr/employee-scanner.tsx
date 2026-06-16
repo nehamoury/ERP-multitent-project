@@ -5,7 +5,7 @@ import { Camera, CameraOff, CheckCircle2, XCircle, RefreshCw, X } from "lucide-r
 import { cn } from "@/lib/utils";
 
 interface Props {
-  onSuccess?: () => void;
+  onSuccess?: (data: any) => void;
 }
 
 export default function EmployeeScanner({ onSuccess }: Props) {
@@ -25,18 +25,27 @@ export default function EmployeeScanner({ onSuccess }: Props) {
   // ── Play beep sound ─────────────────────────────────────────────
   const playBeep = (success: boolean) => {
     try {
-      const ctx = new AudioContext();
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      
       osc.connect(gain);
       gain.connect(ctx.destination);
+      
       osc.frequency.value = success ? 880 : 300;
-      osc.type = "sine";
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.type = "square"; // square is much louder and clearer than sine
+      
+      // Volume control
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15); // short crisp beep
+      
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    } catch {}
+      osc.stop(ctx.currentTime + 0.15);
+    } catch (err) {
+      console.error("Audio playback failed", err);
+    }
   };
 
   // ── Start camera ────────────────────────────────────────────────
@@ -96,7 +105,11 @@ export default function EmployeeScanner({ onSuccess }: Props) {
         playBeep(true);
         const actionText = data.action === "checkin" ? "Checked In" : "Checked Out";
         setResult({ success: true, message: `✅ ${actionText} Successfully!` });
-        onSuccess?.();
+        // Close camera and send data immediately
+        setTimeout(() => {
+            stopCamera();
+            onSuccess?.(data);
+        }, 800); // 800ms delay to see the green success icon before closing
       } else {
         playBeep(false);
         setResult({ success: false, message: data.error || "Scan failed" });

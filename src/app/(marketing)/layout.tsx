@@ -13,18 +13,18 @@ export default function MarketingLayout({
           <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
             <span className="text-primary">Attend</span>IQ
           </Link>
-          <nav className="ml-auto flex items-center gap-4 sm:gap-6">
-            <Link href="/features" className="text-sm font-medium hover:text-primary underline-offset-4 hover:underline">
+          <nav className="ml-auto flex items-center gap-3 sm:gap-6">
+            <Link href="/features" className="hidden sm:inline-block text-sm font-medium hover:text-primary underline-offset-4 hover:underline">
               Features
             </Link>
-            <Link href="/pricing" className="text-sm font-medium hover:text-primary underline-offset-4 hover:underline">
+            <Link href="/pricing" className="hidden sm:inline-block text-sm font-medium hover:text-primary underline-offset-4 hover:underline">
               Pricing
             </Link>
             <Link href="/login" className="text-sm font-medium hover:text-primary underline-offset-4 hover:underline">
               Login
             </Link>
             <Link href="/start-free-trial">
-              <Button>Start Free Trial</Button>
+              <Button size="sm" className="h-8 px-3 text-xs sm:h-10 sm:px-4 sm:text-sm">Start Free Trial</Button>
             </Link>
           </nav>
         </div>

@@ -101,7 +101,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Reports", href: "/hr/reports", icon: BarChart3, roles: ["HR"], feature: "Reports" },
   { label: "Reports", href: "/branch-manager/reports", icon: BarChart3, roles: ["BRANCH_MANAGER"], feature: "Reports" },
   { label: "Audit Logs", href: "/admin/audit-logs", icon: ShieldCheck, roles: ["ADMIN"] },
-  { label: "Billing", href: "/admin/billing", icon: CreditCard, roles: ["ADMIN"] },
+  { label: "Billing", href: "/admin/settings/billing", icon: CreditCard, roles: ["ADMIN"] },
   { label: "Payroll", href: "/admin/payroll", icon: DollarSign, roles: ["ADMIN"], feature: "Payroll" },
   { label: "Payroll", href: "/hr/payroll", icon: DollarSign, roles: ["HR"], feature: "Payroll" },
   { label: "Invoices", href: "/admin/invoices", icon: FileText, roles: ["ADMIN"], feature: "Invoices" },

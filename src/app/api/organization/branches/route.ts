@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Branch name is required", errors: [] }, { status: 400 });
     }
 
-    const maxBranches = (session.user as any).subscription?.maxBranches || 1;
+    const maxBranches = (session.user as any).subscription?.maxBranches || 100;
     const planName = (session.user as any).subscription?.planName || "FREE";
     const branchCount = await prisma.branch.count({ where: { vendorId: session.user.vendorId } });
 
@@ -112,6 +112,19 @@ export async function POST(req: NextRequest) {
         createdBy: session.user.id,
       }
     });
+
+    if (body.managerId) {
+      const managerUser = await prisma.user.findUnique({ where: { id: body.managerId } });
+      if (managerUser) {
+        await prisma.user.update({
+          where: { id: body.managerId },
+          data: {
+            branchId: branch.id,
+            role: managerUser.role === "EMPLOYEE" ? "BRANCH_MANAGER" : managerUser.role
+          }
+        });
+      }
+    }
 
     await prisma.activityLog.create({
       data: {

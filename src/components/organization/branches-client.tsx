@@ -10,6 +10,7 @@ export default function BranchesClient({ initialData, users }: { initialData: an
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [branchToDelete, setBranchToDelete] = useState<{ id: string, name: string } | null>(null);
   
   const { data: branches = initialData } = useQuery({
     queryKey: ['branches'],
@@ -274,6 +275,44 @@ export default function BranchesClient({ initialData, users }: { initialData: an
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {branchToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-card w-full max-w-sm rounded-xl shadow-lg border border-border overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">Delete Branch?</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Are you sure you want to delete <span className="font-semibold text-foreground">"{branchToDelete.name}"</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setBranchToDelete(null)}
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-muted text-muted-foreground font-medium rounded-lg hover:bg-muted/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    deleteMutation.mutate(branchToDelete.id, {
+                      onSuccess: () => setBranchToDelete(null)
+                    });
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -329,8 +368,7 @@ export default function BranchesClient({ initialData, users }: { initialData: an
                         <Pencil size={16} />
                       </button>
                       <button 
-                        onClick={() => { if (confirm("Are you sure you want to delete this branch?")) deleteMutation.mutate(branch.id); }} 
-                        disabled={deleteMutation.isPending} 
+                        onClick={() => setBranchToDelete({ id: branch.id, name: branch.name })} 
                         className="text-muted-foreground hover:text-red-500 transition-colors p-1" 
                         title="Delete"
                       >

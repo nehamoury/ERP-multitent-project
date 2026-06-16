@@ -98,9 +98,13 @@ export async function PATCH(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { id, status, priority, assigneeId, title, description, dueDate } = body;
+        const { id, status, priority, assigneeId, title, description, dueDate, progress, comment, attachment } = body;
 
         if (!id) return NextResponse.json({ error: "Task ID required" }, { status: 400 });
+
+        if (typeof progress === "number" && (progress < 0 || progress > 100)) {
+            return NextResponse.json({ error: "Progress must be between 0 and 100" }, { status: 400 });
+        }
 
         // Verify the task belongs to this vendor
         const existing = await prisma.task.findFirst({
@@ -108,27 +112,40 @@ export async function PATCH(req: NextRequest) {
         });
         if (!existing) return NextResponse.json({ error: "Task not found" }, { status: 404 });
 
-        // Employees can only update status of tasks assigned to them
-        if (session.user.role === "EMPLOYEE") {
-            if (existing.assigneeId !== session.user.id) {
-                return NextResponse.json({ error: "You can only update your own tasks" }, { status: 403 });
-            }
-            // Only allow status change for employees
-            const task = await prisma.task.update({
-                where: { id_vendorId: { id, vendorId: session.user.vendorId } },
-                data: { status },
-            });
-            return NextResponse.json({ success: true, task });
+        const isEmployee = session.user.role === "EMPLOYEE";
+        if (isEmployee && existing.assigneeId !== session.user.id) {
+            return NextResponse.json({ error: "You can only update your own tasks" }, { status: 403 });
         }
 
-        // Admin/HR can update anything
+        // Create TaskUpdate entry if progress or comment changed
+        if (typeof progress === "number" || comment) {
+            await prisma.taskUpdate.create({
+                data: {
+                    taskId: id,
+                    userId: session.user.id,
+                    content: comment ?? null,
+                    progress: typeof progress === "number" ? progress : existing.progress,
+                    status: status || existing.status,
+                },
+            });
+        }
+
+        const existingAttachments = ((existing as any).attachments as any[]) ?? [];
+        const updatedAttachments = attachment ? [...existingAttachments, attachment] : existingAttachments;
+
         const data: any = {};
         if (status) data.status = status;
-        if (priority) data.priority = priority;
-        if (assigneeId !== undefined) data.assigneeId = assigneeId || null;
-        if (title) data.title = title;
-        if (description !== undefined) data.description = description;
-        if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
+        if (typeof progress === "number") data.progress = progress;
+        if (attachment) data.attachments = updatedAttachments;
+
+        // Admin/HR can update additional fields
+        if (!isEmployee) {
+            if (priority) data.priority = priority;
+            if (assigneeId !== undefined) data.assigneeId = assigneeId || null;
+            if (title) data.title = title;
+            if (description !== undefined) data.description = description;
+            if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
+        }
 
         const task = await prisma.task.update({
             where: { id_vendorId: { id, vendorId: session.user.vendorId } },

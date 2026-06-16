@@ -1,6 +1,7 @@
 // src/app/(auth)/login/page.tsx
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAuth } from "@/lib/auth";
 import { getDashboardPath } from "@/lib/utils";
 import LoginForm from "@/components/auth/login-form";
@@ -42,6 +43,20 @@ export default async function LoginPage() {
               </div>
             </div>
           )}
+
+          <div className="mt-8 text-center text-sm text-muted-foreground space-y-4">
+            <p>
+              Don't have an account?{' '}
+              <Link href="/pricing" className="text-primary font-semibold hover:underline">
+                Start Free Trial
+              </Link>
+            </p>
+            <p>
+              <Link href="/" className="hover:text-foreground transition-colors">
+                ← Back to Home
+              </Link>
+            </p>
+          </div>
         </div>
     </div>
   );

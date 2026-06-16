@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import {
   Plus, Building2, Mail, Phone, Calendar, MoreVertical, Edit, Ban,
   CheckCircle2, Copy, Eye, PlaySquare, LogIn, Trash2, AlertTriangle,
-  Info, Clock, ShieldAlert, X, Save, RefreshCw
+  Info, Clock, ShieldAlert, X, Save, RefreshCw, CreditCard
 } from "lucide-react";
 import { format, isPast, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,7 @@ export default function VendorsClient() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [viewingVendor, setViewingVendor] = useState<Vendor | null>(null);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [paymentModalVendor, setPaymentModalVendor] = useState<Vendor | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const { update } = useSession();
@@ -60,6 +61,16 @@ export default function VendorsClient() {
   const [editForm, setEditForm] = useState({
     name: "", slug: "", email: "", phone: "",
     status: "ACTIVE", planName: "FREE", gstin: "", state: "", billingAddress: "",
+  });
+
+  // ── Payment Form State ──────────────────────────────────────────────────────
+  const [paymentForm, setPaymentForm] = useState({
+    planName: "ENTERPRISE",
+    billingCycle: "YEARLY",
+    amount: "",
+    paymentMethod: "CASH",
+    referenceNo: "",
+    notes: ""
   });
 
   // ── Data Query ──────────────────────────────────────────────────────────────
@@ -166,6 +177,26 @@ export default function VendorsClient() {
     onError: (err: any) => showToast(err.message, "error"),
   });
 
+  // ── Record Payment Mutation ─────────────────────────────────────────────────
+  const recordPaymentMutation = useMutation({
+    mutationFn: async (data: typeof paymentForm & { vendorId: string }) => {
+      const res = await fetch('/api/super-admin/payments/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to record payment');
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['super-admin-vendors'] });
+      setPaymentModalVendor(null);
+      showToast("Payment recorded successfully!", "success");
+    },
+    onError: (err: any) => showToast(err.message, "error"),
+  });
+
   // ── Handlers ────────────────────────────────────────────────────────────────
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,6 +223,12 @@ export default function VendorsClient() {
     e.preventDefault();
     if (!editingVendor) return;
     editMutation.mutate({ ...editForm, id: editingVendor.id });
+  };
+
+  const handleRecordPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentModalVendor) return;
+    recordPaymentMutation.mutate({ ...paymentForm, vendorId: paymentModalVendor.id });
   };
 
   const copyCredentials = () => {
@@ -402,6 +439,16 @@ export default function VendorsClient() {
                                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-muted text-foreground transition-colors"
                               >
                                 <Edit size={14} /> Edit Vendor
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setPaymentModalVendor(vendor);
+                                  setPaymentForm(prev => ({ ...prev, planName: vendor.subscription?.plan?.name || "ENTERPRISE" }));
+                                  setActiveDropdown(null);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-muted text-blue-500 transition-colors"
+                              >
+                                <CreditCard size={14} /> Record Payment
                               </button>
                               <button
                                 onClick={() => {
@@ -815,6 +862,79 @@ export default function VendorsClient() {
           </div>
         );
       })()}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* RECORD PAYMENT MODAL */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {paymentModalVendor && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-muted/30">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <CreditCard size={18} className="text-blue-500" /> Record Offline Payment
+              </h2>
+              <button onClick={() => setPaymentModalVendor(null)} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleRecordPayment} className="flex flex-col max-h-[85vh]">
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-xl p-3 text-sm">
+                  <span className="font-semibold">Vendor:</span> {paymentModalVendor.name} (/{paymentModalVendor.slug})
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Plan to Assign/Renew</label>
+                    <select value={paymentForm.planName} onChange={(e) => setPaymentForm({ ...paymentForm, planName: e.target.value })} className={inputCls}>
+                      <option value="STARTER">Starter</option>
+                      <option value="PRO">Pro</option>
+                      <option value="ENTERPRISE">Enterprise</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Billing Cycle</label>
+                    <select value={paymentForm.billingCycle} onChange={(e) => setPaymentForm({ ...paymentForm, billingCycle: e.target.value })} className={inputCls}>
+                      <option value="MONTHLY">Monthly</option>
+                      <option value="YEARLY">Yearly</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Amount Received (₹) *</label>
+                    <input required type="number" min="0" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} className={inputCls} placeholder="50000" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Payment Method *</label>
+                    <select required value={paymentForm.paymentMethod} onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })} className={inputCls}>
+                      <option value="CASH">Cash</option>
+                      <option value="UPI">UPI</option>
+                      <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS)</option>
+                      <option value="CHEQUE">Cheque</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Reference Number (Txn/Cheque No.)</label>
+                  <input value={paymentForm.referenceNo} onChange={(e) => setPaymentForm({ ...paymentForm, referenceNo: e.target.value })} className={inputCls} placeholder="Leave empty if Cash" />
+                </div>
+
+                <div>
+                  <label className={labelCls}>Internal Notes</label>
+                  <textarea value={paymentForm.notes} onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })} className={inputCls + " min-h-[60px] resize-y"} placeholder="Paid to admin Amit by cash..." />
+                </div>
+              </div>
+              <div className="px-6 py-4 flex justify-end gap-3 border-t border-border bg-muted/30">
+                <button type="button" onClick={() => setPaymentModalVendor(null)} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+                <button type="submit" disabled={recordPaymentMutation.isPending} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-70 flex items-center gap-2">
+                  {recordPaymentMutation.isPending ? <><RefreshCw size={14} className="animate-spin" /> Processing...</> : <><Save size={14} /> Confirm Payment</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* TOAST */}

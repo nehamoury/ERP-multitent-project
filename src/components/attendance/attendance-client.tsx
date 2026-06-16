@@ -24,9 +24,10 @@ interface AttendanceRecord {
 interface Props {
   isAdmin?: boolean;
   userId?: string;
+  refreshTrigger?: number;
 }
 
-export default function AttendanceClient({ isAdmin, userId }: Props) {
+export default function AttendanceClient({ isAdmin, userId, refreshTrigger }: Props) {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({ lateCount: 0, checkedInCount: 0 });
@@ -120,7 +121,7 @@ export default function AttendanceClient({ isAdmin, userId }: Props) {
       setStats({ lateCount: data.lateCount || 0, checkedInCount: data.checkedInCount || 0 });
     } catch { }
     finally { setLoading(false); }
-  }, [page, dateFilter, monthFilter, filterMode, statusFilter, employeeFilter, userId, isAdmin]);
+  }, [page, dateFilter, monthFilter, filterMode, statusFilter, employeeFilter, userId, isAdmin, refreshTrigger]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
@@ -150,7 +151,14 @@ export default function AttendanceClient({ isAdmin, userId }: Props) {
             <Button 
               variant="outline" 
               className="bg-card text-foreground hover:bg-muted"
-              onClick={() => setShowManualEntry(true)}
+              onClick={() => {
+                setManualForm(f => ({ 
+                  ...f, 
+                  date: format(new Date(), "yyyy-MM-dd"), 
+                  time: format(new Date(), "HH:mm") 
+                }));
+                setShowManualEntry(true);
+              }}
             >
               <Plus size={16} className="mr-2" /> Manual Entry
             </Button>
@@ -455,7 +463,7 @@ export default function AttendanceClient({ isAdmin, userId }: Props) {
                           onClick={() => {
                             setManualForm({
                               employeeId: r.user?.id || "",
-                              date: r.date.split("T")[0],
+                              date: format(parseISO(r.date), "yyyy-MM-dd"),
                               action: r.checkOut ? "checkout" : "checkin",
                               time: r.checkOut ? format(new Date(r.checkOut), "HH:mm") : (r.checkIn ? format(new Date(r.checkIn), "HH:mm") : ""),
                               reason: r.note || ""

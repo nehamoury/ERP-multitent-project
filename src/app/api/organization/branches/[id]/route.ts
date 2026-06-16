@@ -69,6 +69,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       }
     });
 
+    if (body.managerId) {
+      const managerUser = await prisma.user.findUnique({ where: { id: body.managerId } });
+      if (managerUser) {
+        await prisma.user.update({
+          where: { id: body.managerId },
+          data: {
+            branchId: branch.id,
+            role: managerUser.role === "EMPLOYEE" ? "BRANCH_MANAGER" : managerUser.role
+          }
+        });
+      }
+    }
+
     await prisma.activityLog.create({
       data: {
         userId: session.user.id,
